@@ -1,0 +1,197 @@
+#!/usr/bin/env node
+// SPDX-License-Identifier: BSD-2-Clause
+// Generates test/generated/spec-checks.ts from the pinned OpenAPI spec: for
+// every response schema, a compile-time check that the hand-written model has
+// exactly the spec's fields (in camelCase), with the spec's optionality and
+// nullability. `tsc --noEmit` then fails on any drift.
+//
+//   node scripts/gen-spec-checks.mjs           write the file
+//   node scripts/gen-spec-checks.mjs --check   fail if it is out of date (CI)
+
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parse } from 'yaml';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const specPath = join(root, 'spec', 'openapi', 'v1', 'openapi.yaml');
+const outPath = join(root, 'test', 'generated', 'spec-checks.ts');
+const spec = parse(readFileSync(specPath, 'utf8'));
+const schemas = spec.components.schemas;
+const specVersion = readFileSync(join(root, 'spec', 'VERSION'), 'utf8').trim();
+
+// Response schemas the SDK models (every operation in scope; not getMapsToken).
+const ROOTS = [
+  'ForecastResponse',
+  'CurrentResponse',
+  'AlertsResponse',
+  'NearbyLocationsResponse',
+  'NearbyPointResponse',
+  'SearchLocationsResponse',
+  'LocationsResponse',
+  'PublicCatalogLocationPage',
+  'PublicCatalogLocationDetail',
+  'PublicCatalogStationPage',
+  'PublicCatalogStationDetail',
+  'AttributionRegistry',
+  'RunsResponse',
+  'StormReportsResponse',
+  'StormReportCard',
+];
+// Schemas that are not object models in the SDK.
+const NOT_OBJECTS = new Set(['UnitSystem', 'ErrorResponse', 'FreezingLevel', 'ModelMeans']);
+// Inline objects, by `<Schema>.<field>`, and the SDK type that models them.
+const INLINE = {
+  'ForecastResponse.gap_flow': 'GapFlow',
+  'LocationSummary.elevations': 'LocationElevation',
+  'ElevationForecast.timeseries': 'ElevationTimeSeriesPoint',
+  'CurrentConditions.station': 'CurrentStation',
+  'TimeSeriesPoint.members': 'ModelMembers',
+  'RunsResponse.served': 'ServedRun',
+  'RunsResponse.runs': 'RunInfo',
+  'DailyForecast.wind': 'DailyWind',
+  'ModelMeans.items': 'ModelMean',
+};
+// Deliberate differences from the schema, each with its reason.
+const ALL_OPTIONAL = {
+  // BEHAVIOR.md section 6: every Quantiles field is optional; absent is never 0.
+  Quantiles: 'BEHAVIOR.md section 6',
+};
+
+const tsName = (schema) => schema.replace(/^Public/, '');
+const camel = (key) => key.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
+const refName = (ref) => ref.split('/').pop();
+
+function isNullable(prop) {
+  if (Array.isArray(prop.type) && prop.type.includes('null')) return true;
+  for (const k of ['anyOf', 'oneOf']) {
+    if (prop[k]?.some((s) => s.type === 'null')) return true;
+  }
+  return false;
+}
+
+function hasType(prop) {
+  return (
+    prop.type !== undefined ||
+    prop.$ref !== undefined ||
+    prop.anyOf ||
+    prop.oneOf ||
+    prop.allOf ||
+    prop.enum
+  );
+}
+
+/** Flattens a schema (with allOf) into { properties, required }. */
+function flatten(schema) {
+  if (schema.$ref) return flatten(schemas[refName(schema.$ref)]);
+  const properties = { ...(schema.properties ?? {}) };
+  const required = new Set(schema.required ?? []);
+  for (const part of schema.allOf ?? []) {
+    const f = flatten(part);
+    Object.assign(properties, f.properties);
+    for (const r of f.required) required.add(r);
+  }
+  return { properties, required };
+}
+
+function refsIn(node, out) {
+  if (Array.isArray(node)) for (const x of node) refsIn(x, out);
+  else if (node && typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) {
+      if (k === '$ref') out.add(refName(v));
+      else refsIn(v, out);
+    }
+  }
+  return out;
+}
+
+// Every schema reachable from the roots.
+const reachable = [];
+const queue = [...ROOTS];
+while (queue.length > 0) {
+  const name = queue.shift();
+  if (reachable.includes(name)) continue;
+  reachable.push(name);
+  queue.push(...refsIn(schemas[name], new Set()));
+}
+
+const models = []; // [label, tsType, flattened]
+for (const name of reachable.sort()) {
+  const schema = schemas[name];
+  if (!NOT_OBJECTS.has(name)) models.push([name, tsName(name), flatten(schema), name]);
+}
+for (const [path, type] of Object.entries(INLINE)) {
+  const [owner, field] = path.split('.');
+  let node = field === 'items' ? schemas[owner].items : flatten(schemas[owner]).properties[field];
+  if (node === undefined) throw new Error(`inline path ${path} is not in the spec`);
+  if (node.type === 'array' || (Array.isArray(node.type) && node.type.includes('array')))
+    node = node.items;
+  if (node.anyOf) node = node.anyOf.find((s) => s.type !== 'null');
+  models.push([path, type, flatten(node), owner]);
+}
+
+const lines = [
+  '// SPDX-License-Identifier: BSD-2-Clause',
+  `// GENERATED by scripts/gen-spec-checks.mjs from spec/openapi/v1/openapi.yaml`,
+  `// (ensemble-weather-spec@${specVersion}, OpenAPI ${spec.info.version}). Do not edit.`,
+  '//',
+  '// Compile-time drift checks: each model has exactly the spec fields, with the',
+  "// spec's optionality and nullability. `tsc --noEmit` fails on any difference.",
+  '',
+  "import type * as M from '../../src/index.js';",
+  '',
+  'type Fields<T> = { readonly [K in keyof Required<T>]: true };',
+  'type IsRequired<T, K extends keyof T> = Pick<T, K> extends Required<Pick<T, K>> ? true : false;',
+  'type IsOptional<T, K extends keyof T> = object extends Pick<T, K> ? true : false;',
+  'type IsNullable<T, K extends keyof T> = null extends T[K] ? true : false;',
+  '',
+  'export const models = {',
+];
+const asserts = [];
+for (const [label, type, { properties, required }] of models) {
+  const keys = Object.keys(properties);
+  lines.push(`  // ${label}`);
+  lines.push(`  ${type.replace(/\W/g, '_')}: {`);
+  for (const k of keys) lines.push(`    ${camel(k)}: true,`);
+  lines.push(`  } satisfies Fields<M.${type}>,`);
+  const allOptional = ALL_OPTIONAL[label] !== undefined;
+  for (const k of keys) {
+    const req = required.has(k) && !allOptional;
+    asserts.push(`  Check<${req ? 'IsRequired' : 'IsOptional'}<M.${type}, '${camel(k)}'>>,`);
+    if (hasType(properties[k])) {
+      asserts.push(
+        `  Check<IsNullable<M.${type}, '${camel(k)}'> extends ${String(isNullable(properties[k]))} ? true : false>,`,
+      );
+    }
+  }
+}
+lines.push('};', '');
+lines.push('// Every check must be `true`; a `false` one fails to compile on its own line.');
+lines.push('type Check<T extends true> = T;');
+lines.push('export type Checks = [');
+lines.push(...asserts);
+lines.push('];', '');
+const text = lines.join('\n');
+
+if (process.argv.includes('--check')) {
+  const current = readFileSync(outPath, 'utf8');
+  const formatted = execFileSync(
+    join(root, 'node_modules', '.bin', 'prettier'),
+    ['--stdin-filepath', outPath],
+    {
+      input: text,
+    },
+  ).toString();
+  if (current !== formatted) {
+    console.error('test/generated/spec-checks.ts is out of date: run `npm run gen:spec-checks`.');
+    process.exit(1);
+  }
+  console.log(`spec checks are current (${String(models.length)} models).`);
+} else {
+  writeFileSync(outPath, text);
+  execFileSync(join(root, 'node_modules', '.bin', 'prettier'), ['--write', outPath], {
+    stdio: 'inherit',
+  });
+  console.log(`wrote ${outPath} (${String(models.length)} models).`);
+}
