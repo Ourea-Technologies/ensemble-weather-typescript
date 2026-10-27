@@ -16,6 +16,8 @@
     "useUnknownInCatchVariables": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
+    "erasableSyntaxOnly": true,
+    "paths": { "ensemble-weather": ["./src/index.ts"] },
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "types": ["node"],
