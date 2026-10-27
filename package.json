@@ -67,7 +67,10 @@
     "gen:spec-checks": "node scripts/gen-spec-checks.mjs",
     "sync-spec": "node scripts/sync-spec.mjs",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "check:deps": "node scripts/check-dependencies.mjs",
+    "mock": "node scripts/mock-server.mjs",
+    "check:spec": "node scripts/sync-spec.mjs --check && node scripts/gen-spec-checks.mjs --check"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
