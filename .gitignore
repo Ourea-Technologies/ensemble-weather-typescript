@@ -1,0 +1,7 @@
+node_modules/
+dist/
+docs/
+coverage/
+.scratch/
+*.tgz
+.DS_Store

@@ -1,0 +1,88 @@
+{
+  "name": "ensemble-weather",
+  "version": "0.1.0",
+  "description": "Official TypeScript/JavaScript SDK for the Ourea probabilistic weather API: ensemble forecasts with probabilities, window totals and full quantile ranges.",
+  "keywords": [
+    "ourea",
+    "weather",
+    "forecast",
+    "ensemble",
+    "probabilistic",
+    "snow",
+    "api",
+    "sdk"
+  ],
+  "homepage": "https://docs.oureawx.com/typescript",
+  "bugs": {
+    "url": "https://github.com/Ourea-Technologies/ensemble-weather-typescript/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ourea-Technologies/ensemble-weather-typescript.git"
+  },
+  "license": "BSD-2-Clause",
+  "author": "Ourea Technologies (https://oureawx.com)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/esm/index.d.ts",
+        "default": "./dist/esm/index.js"
+      },
+      "require": {
+        "types": "./dist/cjs/index.d.ts",
+        "default": "./dist/cjs/index.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/cjs/index.d.ts",
+  "files": [
+    "dist",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint --max-warnings 0 .",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:vectors": "vitest run test/vectors.test.ts",
+    "examples": "node scripts/run-examples.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "docs": "typedoc",
+    "check:package": "publint --strict && attw --pack .",
+    "gen:spec-checks": "node scripts/gen-spec-checks.mjs",
+    "sync-spec": "node scripts/sync-spec.mjs",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "0.18.5",
+    "@eslint/js": "10.0.1",
+    "@types/node": "18.19.130",
+    "@vitest/coverage-v8": "3.2.7",
+    "eslint": "10.13.0",
+    "eslint-plugin-security": "4.2.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.10",
+    "publint": "0.3.25",
+    "typedoc": "0.28.20",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vitest": "3.2.7",
+    "yaml": "2.9.1"
+  }
+}
