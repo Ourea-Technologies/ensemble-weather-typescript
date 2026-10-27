@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Nightly contract run against the live API with a read-only CI key. Never on
+# pull requests (so never from forks), and only in the upstream repository.
+name: Live contract
+
+on:
+  schedule:
+    - cron: '7 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    name: Quickstart and contract run against api.oureawx.com
+    if: github.repository == 'Ourea-Technologies/ensemble-weather-typescript'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Quickstart, anonymous
+        run: node examples/quickstart.ts
+      - name: Contract run, with the read-only key
+        env:
+          OUREA_API_KEY: ${{ secrets.OUREA_CI_API_KEY }}
+        run: node scripts/live-contract.mjs

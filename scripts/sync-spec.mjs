@@ -34,7 +34,12 @@ function filesAt(ref) {
     const git = (...a) =>
       execFileSync('git', a, { cwd: tmp, stdio: ['ignore', 'pipe', 'inherit'] });
     execFileSync('git', ['clone', '--quiet', '--no-checkout', repo, tmp], { stdio: 'inherit' });
-    git('-c', 'advice.detachedHead=false', 'checkout', '--quiet', ref);
+    try {
+      git('-c', 'advice.detachedHead=false', 'checkout', '--quiet', ref);
+    } catch {
+      console.error(`ensemble-weather-spec has no ref '${ref}' at ${repo}.`);
+      process.exit(1);
+    }
     const names = git('ls-files', '-z').toString().split('\0').filter(Boolean);
     return new Map(names.map((n) => [n, readFileSync(join(tmp, n))]));
   } finally {

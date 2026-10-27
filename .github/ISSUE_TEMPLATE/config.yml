@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://docs.oureawx.com/typescript
+    about: Guides and concepts for the TypeScript/JavaScript SDK.
+  - name: Ourea
+    url: https://oureawx.com
+    about: Plans, pricing and contact.
+  - name: Report a vulnerability
+    url: https://github.com/Ourea-Technologies/ensemble-weather-typescript/security/advisories/new
+    about: Report security problems privately, never as a public issue.

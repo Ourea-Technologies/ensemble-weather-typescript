@@ -19,11 +19,18 @@ const runs = [
   ['bun', 'bun', ['run', esm]],
 ];
 
+// CI passes --require-all: there a missing runtime is a failure, not a skip.
+const requireAll = process.argv.includes('--require-all');
 let failed = 0;
 for (const [label, command, args] of runs) {
   const result = spawnSync(command, args, { cwd: root, encoding: 'utf8', timeout: 60_000 });
   if (result.error?.code === 'ENOENT') {
-    console.log(`SKIP ${label}: '${command}' is not installed here (CI runs it).`);
+    if (requireAll) {
+      failed++;
+      console.log(`FAIL ${label}: '${command}' is not installed`);
+    } else {
+      console.log(`SKIP ${label}: '${command}' is not installed here (CI runs it).`);
+    }
     continue;
   }
   const ok = result.status === 0;

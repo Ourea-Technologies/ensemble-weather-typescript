@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: BSD-2-Clause
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '23 5 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: npm audit (runtime dependencies; there are none, so this guards regressions)
+        run: npm audit --audit-level=low --omit=dev
+      - name: Zero runtime dependencies
+        run: node scripts/check-dependencies.mjs
+
+  osv:
+    name: OSV scan of the lockfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        with:
+          scan-args: --lockfile=package-lock.json
+
+  static:
+    name: Static security lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: eslint with eslint-plugin-security (and no-eval, no-implied-eval, no-new-func)
+        run: npm run lint
+      - name: No eval or Function constructor anywhere in the shipped source
+        run: |
+          if grep -rnE '\beval\s*\(|\bnew\s+Function\s*\(|\bFunction\s*\(' src; then
+            echo "::error::eval or the Function constructor found in src/"
+            exit 1
+          fi
+
+  zizmor:
+    name: Workflow audit (zizmor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
+        with:
+          advanced-security: false
+
+  dependency-review:
+    name: Dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: low
+          allow-licenses: >-
+            MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, 0BSD, BlueOak-1.0.0,
+            CC0-1.0, CC-BY-4.0, Python-2.0, Unlicense

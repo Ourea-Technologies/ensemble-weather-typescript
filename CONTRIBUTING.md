@@ -73,7 +73,8 @@ Pinned exactly in `package.json` and locked by `package-lock.json`.
 - `eslint`, `@eslint/js`, `typescript-eslint`, `globals`: lint at the strict-type-checked level.
 - `eslint-plugin-security`: the static security lint SDK-STANDARD requires.
 - `prettier`: formatting.
-- `vitest`, `@vitest/coverage-v8`: tests and coverage (vitest 3 still runs on Node.js 18).
+- `vitest`, `@vitest/coverage-v8`: tests and coverage (vitest 3 still runs on Node.js 18), with
+  `overrides.vite` pinned to 6.4.5 because vite 7 needs Node.js 20.19+.
 - `typedoc`: the API reference.
 - `publint`, `@arethetypeswrong/cli`: check the published package shape and its types.
 - `yaml`: read the pinned OpenAPI spec in the drift test and the check generator.
