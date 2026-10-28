@@ -59,8 +59,9 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
       nowcast: false,
       prob: [atLeast('snowfall', 1)],
       totals: [windowTotal('snowfall')],
-      diagnostics: ['ptype'],
-      feelsLike: ['utci'],
+      diagnostics: ['provenance'],
+      include: ['mslp'],
+      feelsLike: ['nws'],
     }),
   getPointForecast: (c) =>
     c.getPointForecast(
@@ -80,8 +81,9 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
         nowcast: false,
         prob: [atLeast('snowfall', 1)],
         totals: [windowTotal('snowfall')],
-        diagnostics: ['ptype'],
-        feelsLike: ['utci'],
+        diagnostics: ['provenance'],
+        include: ['mslp'],
+        feelsLike: ['nws'],
       },
     ),
   getCurrentConditions: (c) =>
@@ -114,8 +116,8 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
       .listCatalogLocations({
         admin1: 'US-OR',
         country: 'US',
-        type: 't',
-        template: 'M',
+        type: 'ski_area',
+        template: 'mountain',
         limit: 5,
         cursor: 'c',
       })
@@ -126,17 +128,15 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
       .listCatalogStations({
         admin1: 'US-OR',
         country: 'US',
-        network: ['Snotel'],
+        network: ['snotel'],
         capability: ['swe'],
-        status: 'Active',
+        status: 'active',
         limit: 5,
         cursor: 'c',
       })
       .then((p) => p),
   getCatalogStation: (c) => c.getCatalogStation('x', { include: ['content'], locale: 'es' }),
-  getAvailableRuns: (c) => c.getRuns({ limit: 5 }),
-  getStormReports: (c) => c.getStormReports({ limit: 5 }),
-  getStormReport: (c) => c.getStormReport(1),
+  getAvailableRuns: async (c) => c.getRuns({ limit: 5, cursor: 'c' }).then((p) => p),
   getAttribution: (c) => c.getAttribution(),
 };
 

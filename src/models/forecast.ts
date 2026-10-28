@@ -40,7 +40,7 @@ export interface ForecastResponse {
   /** Which member view `members` carries (`plume` for Free, `full` for Pro). */
   readonly membersView?: Open<'plume' | 'full'>;
   /** Columbia Gorge gap flow at the first served hour, where it applies. */
-  readonly gapFlow?: GapFlow | null;
+  readonly gapFlow?: GapFlow;
   readonly nearestSensors?: readonly NearestSensor[];
   /** For point forecasts: the point the request resolved to. */
   readonly point?: PointInfo;
@@ -52,16 +52,21 @@ export interface ForecastResponse {
 export interface ProbabilityThresholds {
   readonly hourlyPrecipitation: number;
   readonly hourlySnowfall: number;
-  readonly dailyPrecipProbability: number;
-  readonly dailyPrecipOccurrenceProbability: number;
+  readonly dailyPrecipitationProbability: number;
+  readonly dailyPrecipitationOccurrenceProbability: number;
   readonly dailySnowProbability: number;
 }
+
+/** Why a probability or window total is `null`. */
+export type NullReason = Open<'window_not_covered' | 'too_few_members' | 'variable_unavailable'>;
 
 /**
  * One `prob` term, answered. It carries its whole reference class: the
  * variable, comparison, threshold, window and how many members voted.
  */
 export interface ProbabilityResult {
+  /** The term's canonical spelling, as sent: the key results are matched by. */
+  readonly term: string;
   readonly variable: Open<ProbabilityVariable>;
   readonly op: Open<ComparisonOp>;
   /** In the request's units, at the variable's served precision. */
@@ -74,24 +79,32 @@ export interface ProbabilityResult {
   /** The window's end, exclusive (ISO 8601), or `null` when not covered. */
   readonly to: string | null;
   /**
-   * The share of members meeting the term, 0..1. `null` when the served
-   * series does not reach the window's end: absent, never 0.
+   * The share of members meeting the term, 0..1. `null` (see `nullReason`)
+   * when it has no value: absent, never 0.
    */
   readonly probability: number | null;
   /** Members that voted. */
   readonly members: number;
+  /** Why `probability` is `null`; `null` when it is not. */
+  readonly nullReason: NullReason | null;
 }
 
 /** One `totals` window: the distribution of each member's total over it. */
 export interface WindowTotal {
-  readonly variable: Open<TotalVariable>;
+  /** The term's canonical spelling, as sent: the key results are matched by. */
+  readonly term: string;
+  readonly variable: Open<TotalVariable | 'temperature' | 'wind_speed'>;
   readonly windowStartHours: number;
   readonly windowEndHours: number;
+  /** What each member contributes: `total` for precipitation and snowfall. */
+  readonly aggregation: Open<'total' | 'min' | 'max'>;
   readonly from: string | null;
   readonly to: string | null;
-  /** The members' window totals; `null` when the window is not covered. */
+  /** The members' window totals; `null` (see `nullReason`) when the window is not covered. */
   readonly quantiles: Quantiles | null;
   readonly members: number;
+  /** Why `quantiles` is `null`; `null` when it is not. */
+  readonly nullReason: NullReason | null;
 }
 
 /** Request options the server clamped. */
@@ -111,10 +124,10 @@ export interface ModelRunInfo {
 
 /** Columbia Gorge gap flow status. */
 export interface GapFlow {
-  readonly status?: Open<'none' | 'moderate' | 'strong' | 'extreme'>;
-  readonly pressureDiffHpa?: number;
-  readonly windMultiplier?: number;
-  readonly direction?: string;
+  readonly status: Open<'none' | 'moderate' | 'strong' | 'extreme'>;
+  readonly pressureDiffHpa: number;
+  readonly windMultiplier: number;
+  readonly direction: string;
 }
 
 /** A nearby observation sensor. */
@@ -147,7 +160,7 @@ export interface ForecastData {
   /** The hourly series, starting at the current hour. Absent with `hourly: false`. */
   readonly timeseries?: readonly TimeSeriesPoint[];
   readonly daily?: readonly DailyForecast[];
-  readonly snowOutlook?: SnowOutlook | null;
+  readonly snowOutlook?: SnowOutlook;
 }
 
 /** An hourly sky/weather condition. */
@@ -201,11 +214,11 @@ export interface TimeSeriesPoint {
   /** Display text for `condition` ("Partly Cloudy"). */
   readonly conditionText: string;
   /** Icon name for `condition` (day and night variants). */
-  readonly conditionIcon: string;
+  readonly conditionIcon: ConditionIcon;
   readonly gustNotable?: boolean;
-  readonly precipType?: PrecipType | null;
-  readonly inversion?: InversionInfo | null;
-  readonly freezingLevel?: FreezingLevel | null;
+  readonly precipitationType?: PrecipType;
+  readonly inversion?: InversionInfo;
+  readonly freezingLevel?: FreezingLevel;
   /** The full distribution of every variable this hour. */
   readonly ensemble: EnsembleStats;
   /** Post-processing tags (with `diagnostics: ['provenance']`). */
@@ -222,30 +235,32 @@ export interface TimeSeriesPoint {
 /** The ensemble distribution of each variable at one hour. */
 export interface EnsembleStats {
   readonly temperature: Quantiles;
-  readonly feelsLike?: Quantiles | null;
-  readonly feelsLikeUtci?: Quantiles | null;
+  readonly feelsLike?: Quantiles;
   readonly dewpoint: Quantiles | null;
   readonly precipitation: Quantiles;
   readonly windSpeed: Quantiles;
-  readonly windGust?: Quantiles | null;
-  /** Circular: `max` may be numerically less than `min`. See `windDirectionCircular`. */
-  readonly windDirection: Quantiles;
-  readonly windDirectionCircular?: CircularStats;
+  readonly windGust?: Quantiles;
+  /**
+   * Circular, so not a {@link Quantiles}: each sector runs clockwise from
+   * `from` to `to`, and `to` may be numerically less than `from`.
+   */
+  readonly windDirection: CircularStats;
   readonly snowLevel: Quantiles | null;
-  readonly slr?: Quantiles | null;
-  readonly snowfall?: Quantiles | null;
-  readonly cloudCover?: Quantiles | null;
-  readonly skinTemperature?: Quantiles | null;
-  readonly ptype?: Quantiles | null;
-  readonly mslp?: Quantiles | null;
-  readonly cape?: Quantiles | null;
-  readonly relativeHumidity?: Quantiles | null;
+  readonly slr?: Quantiles;
+  readonly snowfall?: Quantiles;
+  readonly cloudCover?: Quantiles;
+  /** With `include: ['skin_temperature']`. */
+  readonly skinTemperature?: Quantiles;
+  /** With `include: ['mslp']`. */
+  readonly mslp?: Quantiles;
+  readonly cape?: Quantiles;
+  readonly relativeHumidity?: Quantiles;
 }
 
 /** A bearing's distribution on the circle, in degrees. */
 export interface CircularStats {
   readonly mean: number;
-  readonly stddev?: number | null;
+  readonly stddev?: number;
   /** The central 50 % of members, as a clockwise arc. */
   readonly sector50: Sector;
   /** The central 90 % of members, as a clockwise arc. */
@@ -325,14 +340,15 @@ export interface ModelMean extends ModelStats {
 
 /** One model's distribution of each variable. */
 export interface ModelStats {
-  readonly temperature?: Quantiles | null;
-  readonly dewpoint?: Quantiles | null;
-  readonly precipitation?: Quantiles | null;
-  readonly windSpeed?: Quantiles | null;
-  readonly windDirection?: Quantiles | null;
-  readonly snowLevel?: Quantiles | null;
-  readonly slr?: Quantiles | null;
-  readonly snowfall?: Quantiles | null;
+  readonly temperature?: Quantiles;
+  readonly dewpoint?: Quantiles;
+  readonly precipitation?: Quantiles;
+  readonly windSpeed?: Quantiles;
+  /** Circular: see {@link EnsembleStats.windDirection}. */
+  readonly windDirection?: CircularStats;
+  readonly snowLevel?: Quantiles;
+  readonly slr?: Quantiles;
+  readonly snowfall?: Quantiles;
   readonly interpolated?: boolean;
 }
 
@@ -345,14 +361,15 @@ export interface ModelMembers {
 /** One ensemble member's values at one hour. */
 export interface MemberForecast {
   readonly memberId: number;
-  readonly temperature?: number | null;
-  readonly precipitation?: number | null;
+  /** `null` when this member published nothing at this hour. */
+  readonly temperature: number | null;
+  readonly precipitation: number | null;
   readonly precipitationHours?: number;
   readonly windSpeed?: number | null;
   readonly windDirection?: number | null;
-  readonly snowLevel?: number | null;
-  readonly slr?: number | null;
-  readonly snowfall?: number | null;
+  readonly snowLevel: number | null;
+  readonly slr?: number;
+  readonly snowfall?: number;
   readonly cumulativePrecipitation?: number;
   readonly cumulativeSnowfall?: number;
 }
@@ -362,6 +379,48 @@ export interface MembersCumulative {
   readonly precipitation?: Quantiles;
   readonly snowfall?: Quantiles;
 }
+
+/** An icon name for a condition (day and night variants). */
+export type ConditionIcon = Open<
+  | 'sunny'
+  | 'mostly_sunny'
+  | 'partly_cloudy'
+  | 'mostly_cloudy'
+  | 'cloudy'
+  | 'sun_chance_showers'
+  | 'sun_showers_likely'
+  | 'sun_showers'
+  | 'chance_showers'
+  | 'chance_rain'
+  | 'showers_likely'
+  | 'rain_likely'
+  | 'showers'
+  | 'light_rain'
+  | 'rain'
+  | 'heavy_rain'
+  | 'rain_snow_mix'
+  | 'snow'
+  | 'freezing_rain'
+  | 'night_clear'
+  | 'night_mostly_clear'
+  | 'night_partly_cloudy'
+  | 'night_mostly_cloudy'
+  | 'night_cloudy'
+  | 'night_moon_chance_showers'
+  | 'night_moon_showers_likely'
+  | 'night_moon_showers'
+  | 'night_chance_showers'
+  | 'night_chance_rain'
+  | 'night_showers_likely'
+  | 'night_rain_likely'
+  | 'night_showers'
+  | 'night_light_rain'
+  | 'night_rain'
+  | 'night_heavy_rain'
+  | 'night_rain_snow_mix'
+  | 'night_snow'
+  | 'night_freezing_rain'
+>;
 
 /** A daily condition. */
 export type DailyCondition = Open<
@@ -393,40 +452,38 @@ export interface DailyForecast {
   readonly date: string;
   readonly condition: DailyCondition;
   readonly conditionText: string;
-  readonly conditionIcon: string;
-  readonly precipType?: Open<'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'> | null;
+  readonly conditionIcon: ConditionIcon;
+  readonly precipitationType?: Open<'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'>;
   readonly high: Quantiles;
   readonly low: Quantiles;
-  readonly feelsLikeHigh?: Quantiles | null;
-  readonly feelsLikeLow?: Quantiles | null;
-  readonly feelsLikeUtciHigh?: Quantiles | null;
-  readonly feelsLikeUtciLow?: Quantiles | null;
+  readonly feelsLikeHigh?: Quantiles;
+  readonly feelsLikeLow?: Quantiles;
   /** The distribution of each member's own day total. */
-  readonly totalPrecip: Quantiles;
-  readonly totalSnowfall?: Quantiles | null;
-  readonly precipProbability: number;
-  readonly precipOccurrenceProbability: number;
+  readonly totalPrecipitation: Quantiles;
+  readonly totalSnowfall?: Quantiles;
+  readonly precipitationProbability: number;
+  readonly precipitationOccurrenceProbability: number;
   readonly snowProbability: number;
   readonly snowLevelMean: number | null;
   readonly snowLevel?: Quantiles;
-  readonly totalPrecipIfWet?: Quantiles;
+  readonly totalPrecipitationIfWet?: Quantiles;
   readonly totalSnowfallIfWet?: Quantiles;
-  readonly precipDisplay: PrecipDisplay;
-  readonly cloudCoverMean?: number | null;
-  readonly wind?: DailyWind | null;
-  readonly stormOrientation?: Open<'right_side_up' | 'upside_down' | 'mixed'> | null;
-  readonly stormOrientationDescription?: string | null;
+  readonly precipitationDisplay: PrecipDisplay;
+  readonly cloudCoverMean?: number;
+  readonly wind?: DailyWind;
+  readonly stormOrientation?: Open<'right_side_up' | 'upside_down' | 'mixed'>;
+  readonly stormOrientationDescription?: string;
   readonly astro: DailyAstro;
   readonly temperatureClimatology?: DayClimatology;
 }
 
 /** The day's wind summary. */
 export interface DailyWind {
-  readonly status?: Open<'calm' | 'light' | 'moderate' | 'strong' | 'very_strong' | 'extreme'>;
-  readonly peakSpeed?: number;
+  readonly status: Open<'calm' | 'light' | 'moderate' | 'strong' | 'very_strong' | 'extreme'>;
+  readonly peakSpeed: number;
   readonly peakSpeedP90?: number;
-  readonly isGust?: boolean;
-  readonly sustainedSpeed?: number | null;
+  readonly isGust: boolean;
+  readonly sustainedSpeed?: number;
 }
 
 /** What a day's precipitation chip shows. */
@@ -438,8 +495,8 @@ export interface PrecipDisplay {
 
 /** Sun and moon for a day. */
 export interface DailyAstro {
-  readonly sunrise?: string | null;
-  readonly sunset?: string | null;
+  readonly sunrise?: string;
+  readonly sunset?: string;
   readonly moonPhase: Open<
     | 'new_moon'
     | 'waxing_crescent'
@@ -465,41 +522,25 @@ export interface SnowOutlook {
   readonly next24h: number | null;
   readonly next48h: number | null;
   readonly next7d: number | null;
-  readonly overnight4pm9am?: number | null;
+  readonly overnight4pm9am?: number;
   /** The distribution of each member's own window total. */
   readonly quantiles?: SnowOutlookQuantiles;
 }
 
 /** Window-total distributions for the snow outlook windows. */
 export interface SnowOutlookQuantiles {
-  readonly next24h?: Quantiles | null;
-  readonly next48h?: Quantiles | null;
-  readonly next7d?: Quantiles | null;
+  readonly next24h: Quantiles | null;
+  readonly next48h: Quantiles | null;
+  readonly next7d: Quantiles | null;
 }
 
 /** A forecast at one extra elevation of a location. */
 export interface ElevationForecast {
   readonly name: string;
   readonly elevation: number;
-  readonly default?: boolean;
   readonly lat: number;
   readonly lon: number;
-  readonly timeseries?: readonly ElevationTimeSeriesPoint[];
   readonly hourly?: readonly TimeSeriesPoint[];
   readonly daily?: readonly DailyForecast[];
   readonly snowOutlook?: SnowOutlook;
-}
-
-/** One hour of an elevation's compact series. */
-export interface ElevationTimeSeriesPoint {
-  readonly validTime: string;
-  readonly leadTimeHours: number;
-  readonly temperature: Quantiles;
-  readonly snowLevelDelta?: Quantiles | null;
-  readonly windSpeed?: Quantiles | null;
-  readonly windGust?: Quantiles | null;
-  readonly precipitation: Quantiles;
-  readonly condition: string;
-  readonly conditionText: string;
-  readonly conditionIcon: string;
 }

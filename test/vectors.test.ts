@@ -87,12 +87,12 @@ interface Sent {
 
 /** Calls one operation through the public API, with the vector's semantic args. */
 async function invoke(client: Ourea, call: VectorCall): Promise<unknown> {
-  const { iterate, location, state, name, slug, q, lat, lon, elevation_m, ...rest } = call.args;
+  const { iterate, location, state, slug, q, lat, lon, elevation_m, ...rest } = call.args;
   const options = camelize(rest) as Record<string, never>;
   const where =
     location !== undefined
       ? (location as string)
-      : { state: state as string, slug: name as string };
+      : { state: state as string, slug: slug as string };
   const point = {
     lat: lat as number,
     lon: lon as number,

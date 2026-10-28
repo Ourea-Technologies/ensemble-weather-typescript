@@ -25,7 +25,6 @@ export {
   type CurrentOptions,
   type FetchLike,
   type ForecastOptions,
-  type LimitOptions,
   type ListCatalogLocationsOptions,
   type ListCatalogStationsOptions,
   type ListLocationsOptions,
@@ -35,6 +34,7 @@ export {
   type NearbyOptions,
   type PointWithElevation,
   type RequestOptions,
+  type RunsOptions,
   type SearchOptions,
 } from './client.js';
 export { MemoryCache, type CacheEntry, type CacheStore, type MemoryCacheOptions } from './cache.js';

@@ -77,11 +77,10 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Adds a repeated parameter (`capability=a&capability=b`), sorted and de-duplicated. */
-  repeated(name: string, values: readonly string[] | undefined): this {
+  /** Adds a comma-separated list, sorted and de-duplicated (the server's one spelling). */
+  sortedList(name: string, values: readonly string[] | undefined): this {
     if (values === undefined) return this;
-    for (const v of [...new Set(values)].sort()) this.#pairs.push([name, encodeRfc3986(v)]);
-    return this;
+    return this.list(name, [...new Set(values)].sort());
   }
 
   /** The query string, without the leading `?`; empty when nothing is set. */

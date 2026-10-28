@@ -9,6 +9,7 @@ const body = JSON.stringify({
   units: 'metric',
   probabilities: [
     {
+      term: 'snowfall:ge:152.40:24h',
       variable: 'snowfall',
       op: 'ge',
       threshold: 152.4,
@@ -17,6 +18,7 @@ const body = JSON.stringify({
       aggregation: 'total',
       probability: 0.42,
       members: 131,
+      null_reason: null,
     },
   ],
 });

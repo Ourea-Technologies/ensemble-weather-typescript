@@ -187,7 +187,8 @@ export class Transport {
 
       const error = this.#errorFrom(response, body);
       if (RETRYABLE_STATUS.has(status) && attempt < maxRetries) {
-        const retryAfter = status === 429 || status === 503 ? error.retryAfter : undefined;
+        // Retry-After is honoured on 429, 503 and 504 (BEHAVIOR.md section 9).
+        const retryAfter = status === 502 ? undefined : error.retryAfter;
         if (retryAfter !== undefined && retryAfter > MAX_RETRY_AFTER_S) throw error;
         const delay = retryAfter === undefined ? backoffMs(attempt + 1, clock) : retryAfter * 1000;
         await clock.sleep(delay, spec.signal);
@@ -312,6 +313,9 @@ export class Transport {
 
   #errorFrom(response: Response, body: string): ApiError {
     let code: string | undefined;
+    let requestId: string | undefined;
+    let docUrl: string | undefined;
+    let param: string | undefined;
     let message = body.slice(0, 500).trim();
     try {
       const parsed: unknown = JSON.parse(body);
@@ -323,6 +327,10 @@ export class Transport {
       ) {
         code = parsed.error;
         message = 'message' in parsed && typeof parsed.message === 'string' ? parsed.message : '';
+        const fields = parsed as { request_id?: unknown; doc_url?: unknown; param?: unknown };
+        requestId = nonEmptyString(fields.request_id);
+        docUrl = nonEmptyString(fields.doc_url);
+        param = nonEmptyString(fields.param);
       }
     } catch {
       // Not JSON: classify by status.
@@ -332,8 +340,9 @@ export class Transport {
       response.status,
       code,
       redact(message, this.#config.apiKey),
-      response.headers.get('X-Request-Id') ?? undefined,
+      requestId ?? response.headers.get('X-Request-Id') ?? undefined,
       parseRetryAfter(response.headers.get('Retry-After'), this.#config.clock.now()),
+      { docUrl, param },
     );
   }
 
@@ -348,6 +357,10 @@ export class Transport {
     if (notice.link !== undefined) text += `. See ${notice.link}`;
     this.#config.logger.warn(text);
   }
+}
+
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value !== '' ? value : undefined;
 }
 
 async function readBody(response: Response): Promise<string> {

@@ -1,15 +1,67 @@
 // SPDX-License-Identifier: BSD-2-Clause
-// Location lists, search, the public catalog, runs, storm reports and attribution.
+// Location lists, search, the public catalog, runs and attribution.
 
 import type { LocationSummary, LocationType, ModelEntry, Open } from './common.js';
+
+/** Observation networks the API knows today (snake_case). */
+export const STATION_NETWORKS = [
+  'snotel',
+  'snolite',
+  'raws',
+  'asos',
+  'awos',
+  'metar',
+  'rwis_wsdot',
+  'rwis_odot',
+  'rwis_caltrans',
+  'rwis_idot',
+  'rwis_ndot',
+  'rwis_udot',
+  'rwis_cdot',
+  'rwis_mdt',
+  'rwis_wydot',
+  'rwis_other',
+  'agrimet',
+  'agweathernet',
+  'cocorahs',
+  'coop',
+  'usgs',
+  'tempest',
+  'davis',
+  'wxflow',
+  'cdec',
+  'cimis',
+  'mesonet_oregon',
+  'mesonet_synoptic',
+  'mesonet_other',
+  'ndbc_buoy',
+  'other',
+  'hads',
+  'madis',
+  'nwac',
+  'mt_mesonet',
+] as const;
+
+/** A station's observation network (`snotel`, `raws`, ...). Open: see {@link Open}. */
+export type StationNetwork = Open<(typeof STATION_NETWORKS)[number]>;
+
+/** A station's live-feed status. */
+export type StationStatus = Open<
+  'active' | 'intermittent' | 'inactive' | 'decommissioned' | 'unknown'
+>;
+
+/** A catalog page template's variant. */
+export type TemplateVariant = Open<
+  'mountain' | 'coastal' | 'trail' | 'pass' | 'generic' | 'station'
+>;
 
 /** One page of a state's (or every state's) locations. */
 export interface LocationsResponse {
   readonly state: string;
   readonly count: number;
   readonly locations: readonly LocationSummary[];
-  /** Pass back as `cursor` for the next page; absent on the last page. */
-  readonly nextCursor?: string;
+  /** Pass back as `cursor` for the next page; `null` on the last page. */
+  readonly nextCursor: string | null;
 }
 
 /** A search hit. `key` is the `state/slug` pair a forecast call takes. */
@@ -42,17 +94,17 @@ export interface CatalogLocation {
   readonly elevationM: number;
   readonly type: LocationType;
   readonly timezone: string;
-  readonly county?: string | null;
+  readonly county?: string;
   readonly country?: string;
-  readonly aliases?: readonly string[] | null;
-  readonly descriptionShort?: string | null;
-  readonly descriptionLong?: string | null;
-  readonly microclimateNotes?: string | null;
-  readonly metaTitle?: string | null;
-  readonly metaDescription?: string | null;
-  readonly bestSeasons?: readonly string[] | null;
-  readonly keyFactors?: readonly string[] | null;
-  readonly tags?: readonly string[] | null;
+  readonly aliases?: readonly string[];
+  readonly descriptionShort?: string;
+  readonly descriptionLong?: string;
+  readonly microclimateNotes?: string;
+  readonly metaTitle?: string;
+  readonly metaDescription?: string;
+  readonly bestSeasons?: readonly string[];
+  readonly keyFactors?: readonly string[];
+  readonly tags?: readonly string[];
   /** Free-form links, passed through as the server sent them. */
   readonly externalLinks?: unknown;
   readonly isFeatured?: boolean;
@@ -73,53 +125,52 @@ export interface CatalogLocationDetail extends CatalogLocation {
   readonly nearbyStations: readonly CatalogNearbyStation[];
   readonly template?: CatalogTemplateSummary;
   readonly content?: readonly CatalogResolvedEntry[];
-  readonly ads?: readonly CatalogResolvedAdSlot[];
 }
 
 /** A named elevation of a catalog location. */
 export interface CatalogElevation {
   readonly label: string;
   readonly elevationM: number;
-  readonly latOverride?: number | null;
-  readonly lonOverride?: number | null;
+  readonly latOverride?: number;
+  readonly lonOverride?: number;
   readonly isDefault: boolean;
 }
 
 /** A photo with its credit and licence. */
 export interface CatalogPhoto {
   readonly url: string;
-  readonly caption?: string | null;
-  readonly credit?: string | null;
-  readonly altText?: string | null;
-  readonly license?: string | null;
-  readonly licenseUrl?: string | null;
+  readonly caption?: string;
+  readonly credit?: string;
+  readonly altText?: string;
+  readonly license?: string;
+  readonly licenseUrl?: string;
 }
 
 /** A webcam. */
 export interface CatalogWebcam {
   readonly name: string;
   readonly url: string;
-  readonly embedType?: string | null;
-  readonly provider?: string | null;
-  readonly refreshIntervalSeconds?: number | null;
+  readonly embedType?: string;
+  readonly provider?: string;
+  readonly refreshIntervalSeconds?: number;
 }
 
 /** A station near a catalog location. */
 export interface CatalogNearbyStation {
   readonly slug: string;
   readonly name: string;
-  readonly network: string;
-  readonly stationStatus: string;
-  readonly distanceKm?: number | null;
-  readonly elevationDiffM?: number | null;
+  readonly network: StationNetwork;
+  readonly stationStatus: StationStatus;
+  readonly distanceKm?: number;
+  readonly elevationDiffM?: number;
   readonly isPrimary: boolean;
 }
 
 /** The page template a catalog location renders with. */
 export interface CatalogTemplateSummary {
   readonly id: string;
-  readonly locationType: string | null;
-  readonly templateVariant: string | null;
+  readonly locationType: LocationType | null;
+  readonly templateVariant: TemplateVariant | null;
   readonly spec: readonly CmsTemplateSection[];
 }
 
@@ -128,7 +179,7 @@ export interface CmsTemplateSection {
   readonly kind: Open<'weather_panel' | 'content_slot' | 'ad_slot' | 'media'>;
   readonly key: string;
   /** Free-form configuration, passed through as the server sent it. */
-  readonly config?: Readonly<Record<string, unknown>> | null;
+  readonly config?: Readonly<Record<string, unknown>>;
 }
 
 /** A resolved content entry. */
@@ -144,39 +195,6 @@ export interface CatalogResolvedEntry {
   readonly updatedAt: string;
 }
 
-/** A resolved ad slot. */
-export interface CatalogResolvedAdSlot {
-  readonly slotKey: string;
-  readonly kind: Open<'house' | 'third_party'>;
-  readonly house?: CatalogHousePlacement;
-  readonly thirdParty?: CatalogThirdPartyPlacement;
-  readonly sizes: readonly (readonly number[])[];
-}
-
-/** A house ad placement. */
-export interface CatalogHousePlacement {
-  readonly campaignId: string;
-  readonly creativeId: string;
-  readonly content: CmsAdCreativeContent;
-}
-
-/** A house ad's creative. */
-export interface CmsAdCreativeContent {
-  readonly headline?: string;
-  readonly body?: string;
-  readonly cta?: string;
-  readonly clickUrl?: string;
-  readonly photoId?: string;
-}
-
-/** A third-party ad placement. */
-export interface CatalogThirdPartyPlacement {
-  readonly unitId: string;
-  readonly provider: Open<'adsense' | 'gam' | 'custom'>;
-  /** Free-form configuration, passed through as the server sent it. */
-  readonly config: Readonly<Record<string, unknown>>;
-}
-
 /** An observation station in the public catalog. */
 export interface CatalogStation {
   readonly slug: string;
@@ -187,28 +205,28 @@ export interface CatalogStation {
   readonly elevationM: number;
   readonly type: LocationType;
   readonly timezone: string;
-  readonly county?: string | null;
+  readonly county?: string;
   readonly country?: string;
-  readonly aliases?: readonly string[] | null;
-  readonly network?: string;
+  readonly aliases?: readonly string[];
+  readonly network?: StationNetwork;
   readonly sourceStationId?: string;
-  readonly elevationMslM?: number | null;
-  readonly sensorHeightAglM?: number | null;
-  readonly sensorCapabilities?: readonly string[] | null;
-  readonly stationStatus?: string;
-  readonly lastReportAt?: string | null;
+  readonly elevationMslM?: number;
+  readonly sensorHeightAglM?: number;
+  readonly sensorCapabilities?: readonly string[];
+  readonly stationStatus?: StationStatus;
+  readonly lastReportAt?: string;
   /** Free-form, passed through as the server sent it. */
   readonly lastReportSummary?: unknown;
-  readonly installDate?: string | null;
-  readonly decommissionDate?: string | null;
-  readonly updateFrequencyMinutes?: number | null;
-  readonly stationUrl?: string | null;
-  readonly dataUrl?: string | null;
-  readonly descriptionShort?: string | null;
-  readonly descriptionLong?: string | null;
-  readonly metaTitle?: string | null;
-  readonly metaDescription?: string | null;
-  readonly tags?: readonly string[] | null;
+  readonly installDate?: string;
+  readonly decommissionDate?: string;
+  readonly updateFrequencyMinutes?: number;
+  readonly stationUrl?: string;
+  readonly dataUrl?: string;
+  readonly descriptionShort?: string;
+  readonly descriptionLong?: string;
+  readonly metaTitle?: string;
+  readonly metaDescription?: string;
+  readonly tags?: readonly string[];
   readonly isFeatured?: boolean;
 }
 
@@ -222,10 +240,9 @@ export interface CatalogStationPage {
 export interface CatalogStationDetail extends CatalogStation {
   readonly photos: readonly CatalogPhoto[];
   readonly webcams: readonly CatalogWebcam[];
-  readonly primaryLocation?: CatalogPrimaryLocation | null;
+  readonly primaryLocation?: CatalogPrimaryLocation;
   readonly template?: CatalogTemplateSummary;
   readonly content?: readonly CatalogResolvedEntry[];
-  readonly ads?: readonly CatalogResolvedAdSlot[];
 }
 
 /** The location a station primarily serves. */
@@ -243,6 +260,8 @@ export interface RunsResponse {
   readonly served: ServedRun | null;
   readonly runs: readonly RunInfo[];
   readonly count: number;
+  /** Pass back as `cursor` for the next page; `null` on the last page. */
+  readonly nextCursor: string | null;
 }
 
 /** The run forecasts are served from. */
@@ -254,29 +273,6 @@ export interface ServedRun {
 /** An available run. */
 export interface RunInfo {
   readonly initializedAt: string;
-}
-
-/** Recent storm verification reports. */
-export interface StormReportsResponse {
-  readonly reports: readonly StormReportCard[];
-  readonly count: number;
-}
-
-/** How a past storm's forecast compared with what fell. */
-export interface StormReportCard {
-  readonly id: number;
-  readonly locationName: string;
-  readonly eventType: string;
-  readonly onsetTime: string;
-  readonly endTime: string;
-  readonly forecastTotalMm: number;
-  readonly observedTotalMm: number;
-  readonly forecastSnowfallMm?: number | null;
-  readonly observedSnowfallMm?: number | null;
-  readonly bestModel?: string | null;
-  readonly bestLeadTimeHours?: number | null;
-  readonly compositeScore?: number | null;
-  readonly headline?: string | null;
 }
 
 /** Every data source with its provider's licence and required statements. */

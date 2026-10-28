@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  type ApiError,
   atLeast,
   ConnectionError,
   inches,
@@ -164,9 +165,9 @@ describe('every operation builds its canonical request', () => {
     [
       'getCatalogLocation',
       (c: Ourea) =>
-        c.getCatalogLocation('mt-hood-meadows', { include: ['content', 'ads'], locale: 'en' }),
+        c.getCatalogLocation('mt-hood-meadows', { include: ['content', 'template'], locale: 'en' }),
       '/api/v1/catalog/locations/mt-hood-meadows',
-      'include=content%2Cads',
+      'include=content%2Ctemplate',
     ],
     [
       'getCatalogStation',
@@ -174,14 +175,13 @@ describe('every operation builds its canonical request', () => {
       '/api/v1/catalog/stations/s1',
       'locale=es',
     ],
-    ['getRuns', (c: Ourea) => c.getRuns({ limit: 10 }), '/api/v1/runs', ''],
+    ['getRuns', async (c: Ourea) => c.getRuns({ limit: 10 }), '/api/v1/runs', ''],
     [
-      'getStormReports',
-      (c: Ourea) => c.getStormReports({ limit: 5 }),
-      '/api/v1/storm-reports',
-      'limit=5',
+      'getRuns (a later page)',
+      async (c: Ourea) => c.getRuns({ limit: 5, cursor: 'c1' }),
+      '/api/v1/runs',
+      'cursor=c1&limit=5',
     ],
-    ['getStormReport', (c: Ourea) => c.getStormReport(42), '/api/v1/storm-reports/42', ''],
     [
       'getForecast',
       (c: Ourea) =>
@@ -189,20 +189,17 @@ describe('every operation builds its canonical request', () => {
           elevations: ['base', 'summit'],
           feelsLike: ['nws'],
           diagnostics: ['provenance'],
+          include: ['skin_temperature', 'mslp', 'mslp'],
           run: new Date('2026-11-15T00:00:00Z'),
         }),
       '/api/v1/locations/or/x',
-      'diagnostics=provenance&elevations=base%2Csummit&run=2026-11-15T00%3A00%3A00Z',
+      'diagnostics=provenance&elevations=base%2Csummit&include=mslp%2Cskin_temperature&run=2026-11-15T00%3A00%3A00Z',
     ],
   ] as const)('%s', async (_name, call, path, query) => {
     const h = harness([{ body: '{}' }]);
     await call(h.client);
     expect(new URL(h.sent[0]?.url ?? '').pathname).toBe(path);
     expect(queryOf(h.sent[0])).toBe(query);
-  });
-
-  it('refuses a non-integer storm report id', async () => {
-    await expect(harness([]).client.getStormReport(1.5)).rejects.toBeInstanceOf(UsageError);
   });
 
   it('lists state locations and walks their cursor', async () => {
@@ -226,16 +223,16 @@ describe('every operation builds its canonical request', () => {
     expect(new URL(h.sent[2]?.url ?? '').pathname).toBe('/api/v1/locations');
   });
 
-  it('pages the station catalog with repeated capabilities', async () => {
+  it('pages the station catalog with sorted comma lists', async () => {
     const h = harness([{ body: JSON.stringify({ items: [{ slug: 's' }], next_cursor: null }) }]);
     const pages = [];
     for await (const p of h.client
-      .listCatalogStations({ capability: ['swe', 'air_temp'], network: ['Snotel'] })
+      .listCatalogStations({ capability: ['swe', 'air_temp', 'swe'], network: ['snotel', 'raws'] })
       .pages()) {
       pages.push(p);
     }
     expect(pages).toHaveLength(1);
-    expect(queryOf(h.sent[0])).toBe('capability=air_temp&capability=swe&network=Snotel');
+    expect(queryOf(h.sent[0])).toBe('capability=air_temp%2Cswe&network=raws%2Csnotel');
   });
 });
 
@@ -247,6 +244,29 @@ describe('probabilities and totals', () => {
       totals: [],
     });
     expect(f.probabilities?.map((p) => p.probability)).toEqual([null, 0.42]);
+  });
+
+  it('maps results by their echoed term, not by any other field', async () => {
+    const answer = {
+      term: 'snowfall:ge:6.000:24h',
+      variable: 'snowfall',
+      op: 'ge',
+      threshold: 6.0004,
+      window_start_hours: 0,
+      window_end_hours: 24,
+      aggregation: 'total',
+      from: null,
+      to: null,
+      probability: 0.5,
+      members: 10,
+      null_reason: null,
+    };
+    const h = harness([{ body: JSON.stringify({ units: 'imperial', probabilities: [answer] }) }], {
+      units: 'imperial',
+    });
+    const f = await h.client.getForecast('or/x', { prob: [atLeast('snowfall', inches(6))] });
+    expect(f.probabilities?.[0]?.probability).toBe(0.5);
+    expect(f.probabilities?.[0]?.nullReason).toBeNull();
   });
 
   it('fails loudly when the body answers some terms but not all', async () => {
@@ -286,6 +306,35 @@ describe('retries and timeouts', () => {
     ]);
     await h.client.getAttribution();
     expect(h.delays).toEqual([10]);
+  });
+
+  it('honours Retry-After on 504', async () => {
+    const h = harness([
+      { status: 504, headers: { 'Retry-After': '3' }, body: '{}' },
+      { body: body('attribution') },
+    ]);
+    await h.client.getAttribution();
+    expect(h.delays).toEqual([3]);
+  });
+
+  it("reads the error body's request_id, doc_url and param", async () => {
+    const h = harness([
+      {
+        status: 400,
+        headers: { 'X-Request-Id': 'from-header' },
+        body: JSON.stringify({
+          error: 'BAD_REQUEST',
+          message: 'bad term',
+          request_id: '01JBQ6ZK3V8M4T2N7XQH5R9W0C',
+          doc_url: 'https://docs.oureawx.com/features/errors/#bad_request',
+          param: 'prob',
+        }),
+      },
+    ]);
+    const error = (await h.client.getAttribution().catch((e: unknown) => e)) as ApiError;
+    expect(error.requestId).toBe('01JBQ6ZK3V8M4T2N7XQH5R9W0C');
+    expect(error.docUrl).toBe('https://docs.oureawx.com/features/errors/#bad_request');
+    expect(error.param).toBe('prob');
   });
 
   it('retries a 429 without Retry-After with jitter and reports retryAfter when given', async () => {

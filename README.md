@@ -103,7 +103,7 @@ for (const p of f.probabilities ?? []) {
 }
 
 // A storm total: the distribution of each member's own total over the window.
-const storm = f.windowTotals?.[0]?.quantiles; // null when the run does not cover the window
+const storm = f.windowTotals?.[0]?.quantiles; // null (see nullReason) when the window is not covered
 
 // Quantiles: the served ranges, by name.
 const hour = f.forecast.timeseries?.[0];
@@ -115,8 +115,13 @@ probability from them: the server computes every probability and window total
 from the full ensemble (summing hourly quantiles gives a wrong storm total).
 Thresholds you give in another unit (`inches(6)` on a metric request) are
 converted exactly before sending; response values are always in the request's
-units. Answers come back in the order you asked, and a `null` probability
-means the forecast does not reach the window's end, never 0. More at
+units. Each answer echoes its canonical `term`, which the SDK matches to put
+answers back in the order you asked; a `null` probability (or window total)
+carries its `nullReason` (`window_not_covered`, `too_few_members`,
+`variable_unavailable`) and never means 0. Wind direction is circular, so
+`ensemble.windDirection` is not quantiles but a `CircularStats` (`mean`,
+`stddev`, and the clockwise `sector50` / `sector90` arcs, whose `to` may be
+less than `from`). More at
 [docs.oureawx.com/concepts/probabilities](https://docs.oureawx.com/concepts/probabilities).
 
 ## More examples
@@ -138,15 +143,16 @@ Run them all against a local mock of the API with `npm run build && npm run exam
 
 Every error is an `OureaError` with a stable `category`. HTTP errors are
 `ApiError`s carrying `status`, `code` (verbatim, even when new), `message`,
-`requestId` and, on 429, `retryAfter` seconds:
+`requestId`, `docUrl` (the code's documentation page), `param` (the parameter
+a 400 is about, when named) and, on 429, `retryAfter` seconds:
 
 | Class                  | Category           | When                                                               |
 | ---------------------- | ------------------ | ------------------------------------------------------------------ |
 | `AuthenticationError`  | `authentication`   | invalid or missing key (401)                                       |
 | `PermissionError`      | `permission`       | your plan does not allow it, e.g. `PRO_REQUIRED` (403)             |
-| `NotFoundError`        | `not_found`        | no such location, run or report (404, 410)                         |
+| `NotFoundError`        | `not_found`        | no such location or station (404, 410)                             |
 | `InvalidRequestError`  | `invalid_request`  | the server rejected a parameter (400)                              |
-| `OutsideCoverageError` | `outside_coverage` | `OUTSIDE_COVERAGE`: the point is outside the domain                |
+| `OutsideCoverageError` | `outside_coverage` | `OUTSIDE_COVERAGE` (404): the point is outside the domain          |
 | `RateLimitError`       | `rate_limited`     | over a budget (429)                                                |
 | `UnavailableError`     | `unavailable`      | the server could not answer (5xx)                                  |
 | `ConnectionError`      | `connection`       | no response: DNS, TLS, reset, or the 30 s per-attempt timeout      |
@@ -163,7 +169,7 @@ try {
 
 Connection errors (except TLS verification failures), 429, 502, 503 and 504
 are retried up to `maxRetries` (default 2) times, waiting exactly `Retry-After`
-when the server sends one of 60 s or less (more than that is returned
+(on 429, 503 and 504) when the server sends one of 60 s or less (more than that is returned
 immediately as the error), else full-jitter backoff from 0.5 s up to 8 s.
 Nothing else is retried. Every call takes `{ signal }` to cancel it.
 

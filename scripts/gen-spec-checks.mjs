@@ -36,21 +36,24 @@ const ROOTS = [
   'PublicCatalogStationDetail',
   'AttributionRegistry',
   'RunsResponse',
-  'StormReportsResponse',
-  'StormReportCard',
 ];
 // Schemas that are not object models in the SDK.
-const NOT_OBJECTS = new Set(['UnitSystem', 'ErrorResponse', 'FreezingLevel', 'ModelMeans']);
+const NOT_OBJECTS = new Set([
+  'UnitSystem',
+  'ErrorResponse',
+  'FreezingLevel',
+  'ModelMeans',
+  'ConditionIcon',
+  'NextCursor',
+  'NullReason',
+]);
 // Inline objects, by `<Schema>.<field>`, and the SDK type that models them.
 const INLINE = {
-  'ForecastResponse.gap_flow': 'GapFlow',
   'LocationSummary.elevations': 'LocationElevation',
-  'ElevationForecast.timeseries': 'ElevationTimeSeriesPoint',
   'CurrentConditions.station': 'CurrentStation',
   'TimeSeriesPoint.members': 'ModelMembers',
   'RunsResponse.served': 'ServedRun',
   'RunsResponse.runs': 'RunInfo',
-  'DailyForecast.wind': 'DailyWind',
   'ModelMeans.items': 'ModelMean',
 };
 // Deliberate differences from the schema, each with its reason.
@@ -64,6 +67,7 @@ const camel = (key) => key.replace(/_([a-z0-9])/g, (_, c) => c.toUpperCase());
 const refName = (ref) => ref.split('/').pop();
 
 function isNullable(prop) {
+  if (prop.$ref !== undefined) return isNullable(schemas[refName(prop.$ref)]);
   if (Array.isArray(prop.type) && prop.type.includes('null')) return true;
   for (const k of ['anyOf', 'oneOf']) {
     if (prop[k]?.some((s) => s.type === 'null')) return true;

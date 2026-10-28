@@ -6,6 +6,49 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+The v1 contract as deployed (ensemble-weather-spec 8b85fea, KAN-1561).
+
+### Changed
+
+- `precip*` fields are `precipitation*` everywhere: `DailyForecast.totalPrecipitation`,
+  `totalPrecipitationIfWet`, `precipitationProbability`,
+  `precipitationOccurrenceProbability`, `precipitationType`, `precipitationDisplay`;
+  `TimeSeriesPoint.precipitationType`; `CurrentConditions.precipitationProbability`;
+  `SensorObservation.precipitationRate`; `ProbabilityThresholds.dailyPrecipitation*`.
+- `EnsembleStats.windDirection` (and `ModelStats.windDirection`) is a `CircularStats`
+  (`mean`, `stddev`, `sector50`, `sector90`), not `Quantiles`; `windDirectionCircular`
+  is gone.
+- Probabilities and window totals are mapped back to your terms by the `term` each
+  result echoes, never by position. `ProbabilityResult` and `WindowTotal` carry `term`
+  and `nullReason`; `WindowTotal` carries `aggregation`.
+- `ActiveAlert.severity` and `urgency` are snake_case enums; `certainty` is new.
+  `CurrentStation.stationId` is new. `LocationRef.slug` and `type` may be `null` on a
+  coordinate forecast. Catalog `network`, `stationStatus` and `templateVariant` are
+  snake_case enums (`StationNetwork`, `StationStatus`, `TemplateVariant`).
+- Fields the server now omits instead of sending `null` are optional, not nullable
+  (catalog text fields, `gapFlow`, `snowOutlook`, daily `wind`, `feelsLike*`, ...).
+- `getRuns` returns a `PageRequest` (await it for a page, `for await` it for every run)
+  and takes `cursor`; `RunsResponse.nextCursor` is new. `LimitOptions` is `RunsOptions`.
+- `listCatalogStations` sends `capability` and `network` as one sorted comma list.
+- Errors: the 16 public codes (`AUTH_UNAVAILABLE` is new and `unavailable`;
+  `FORBIDDEN`, `GONE`, `MODEL_RUN_NOT_FOUND`, `AMBIGUOUS`, `INVALID_MAX_HOURS` and
+  `FEELS_LIKE_UNAVAILABLE` are gone and now map by status). `ApiError` gains `docUrl`
+  and `param`, and `requestId` comes from the body's `request_id` when present.
+  `OUTSIDE_COVERAGE` is a 404. `Retry-After` is honoured on 504 as well as 429 and 503.
+
+### Added
+
+- Forecast option `include` (`skin_temperature`, `mslp`).
+
+### Removed
+
+- `getStormReports`, `getStormReport`, `StormReportsResponse` and `StormReportCard`
+  (not in the public API).
+- Forecast options `diagnostics: ['ptype']` and `feelsLike: ['utci']`, the
+  `feelsLikeUtci*` and `ensemble.ptype` fields, and `ElevationForecast.timeseries` /
+  `default` (`ElevationTimeSeriesPoint`).
+- Catalog detail `ads` (and its ad-slot models) and `include: ['ads']`.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added

@@ -44,10 +44,14 @@ export interface ApiErrorDetails {
    * body was not the API's JSON error shape.
    */
   readonly code: string | undefined;
-  /** The server's `X-Request-Id`, for support requests. */
+  /** The request's id (the body's `request_id`, else `X-Request-Id`), for support requests. */
   readonly requestId: string | undefined;
   /** Seconds the server asked us to wait (`Retry-After`), when it sent one. */
   readonly retryAfter: number | undefined;
+  /** The documentation page for `code`, when the body names one. */
+  readonly docUrl?: string | undefined;
+  /** The query parameter a 400 is about, when the body names one. */
+  readonly param?: string | undefined;
 }
 
 /**
@@ -59,6 +63,8 @@ export class ApiError extends OureaError implements ApiErrorDetails {
   readonly code: string | undefined;
   readonly requestId: string | undefined;
   readonly retryAfter: number | undefined;
+  readonly docUrl: string | undefined;
+  readonly param: string | undefined;
 
   constructor(category: ErrorCategory, message: string, details: ApiErrorDetails) {
     super(category, message);
@@ -66,6 +72,8 @@ export class ApiError extends OureaError implements ApiErrorDetails {
     this.code = details.code;
     this.requestId = details.requestId;
     this.retryAfter = details.retryAfter;
+    this.docUrl = details.docUrl;
+    this.param = details.param;
   }
 }
 
@@ -75,13 +83,13 @@ export class AuthenticationError extends ApiError {}
 /** The key is valid but its plan does not allow this (403, e.g. `PRO_REQUIRED`). */
 export class PermissionError extends ApiError {}
 
-/** No such location, run, station or report (404, 410). */
+/** No such location, station or resource (404, 410). */
 export class NotFoundError extends ApiError {}
 
 /** The server rejected the request's parameters (400). */
 export class InvalidRequestError extends ApiError {}
 
-/** The coordinates are outside the forecast domain (`OUTSIDE_COVERAGE`). */
+/** The coordinates are outside the forecast domain (`OUTSIDE_COVERAGE`, a 404). */
 export class OutsideCoverageError extends ApiError {}
 
 /**
@@ -115,24 +123,19 @@ const CODE_CATEGORIES: ReadonlyMap<string, ErrorCategory> = new Map(
     INVALID_API_KEY: 'authentication',
     UNAUTHORIZED: 'authentication',
     PRO_REQUIRED: 'permission',
-    FORBIDDEN: 'permission',
     LOCATION_NOT_FOUND: 'not_found',
-    MODEL_RUN_NOT_FOUND: 'not_found',
     NOT_FOUND: 'not_found',
-    GONE: 'not_found',
     BAD_REQUEST: 'invalid_request',
     INVALID_COORDINATES: 'invalid_request',
     INVALID_ELEVATION: 'invalid_request',
-    INVALID_MAX_HOURS: 'invalid_request',
     ELEVATION_REQUIRED: 'invalid_request',
-    AMBIGUOUS: 'invalid_request',
-    FEELS_LIKE_UNAVAILABLE: 'invalid_request',
     OUTSIDE_COVERAGE: 'outside_coverage',
     TOO_MANY_REQUESTS: 'rate_limited',
     FORECAST_UNAVAILABLE: 'unavailable',
     TIMEOUT: 'unavailable',
     INTERNAL_ERROR: 'unavailable',
     DATABASE_ERROR: 'unavailable',
+    AUTH_UNAVAILABLE: 'unavailable',
   } satisfies Record<string, ErrorCategory>),
 );
 
@@ -173,9 +176,17 @@ export function apiErrorFrom(
   message: string,
   requestId: string | undefined,
   retryAfter: number | undefined,
+  extra: { readonly docUrl?: string | undefined; readonly param?: string | undefined } = {},
 ): ApiError {
   const category = categoryFor(status, code);
   const text = code === undefined ? `HTTP ${String(status)}: ${message}` : `${code}: ${message}`;
   // eslint-disable-next-line security/detect-object-injection -- category is an ErrorCategory, not input
-  return new ERROR_CLASSES[category](category, text, { status, code, requestId, retryAfter });
+  return new ERROR_CLASSES[category](category, text, {
+    status,
+    code,
+    requestId,
+    retryAfter,
+    docUrl: extra.docUrl,
+    param: extra.param,
+  });
 }

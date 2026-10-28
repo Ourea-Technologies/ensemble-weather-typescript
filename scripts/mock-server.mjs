@@ -38,6 +38,7 @@ function forecast(params, point) {
       const { start, end } = windowOf(window);
       const amount = variable === 'precipitation' || variable === 'snowfall';
       return {
+        term,
         variable,
         op,
         threshold: Number(threshold),
@@ -48,6 +49,7 @@ function forecast(params, point) {
         to: '2026-11-16T00:00:00Z',
         probability: [0.42, 0.18, 0.73, 0.05][i % 4],
         members: 131,
+        null_reason: null,
       };
     });
   }
@@ -58,13 +60,16 @@ function forecast(params, point) {
       const [variable, window] = term.split(':');
       const { start, end } = windowOf(window);
       return {
+        term,
         variable,
         window_start_hours: start,
         window_end_hours: end,
+        aggregation: 'total',
         from: '2026-11-15T00:00:00Z',
         to: '2026-11-17T00:00:00Z',
         quantiles: canned,
         members: 131,
+        null_reason: null,
       };
     });
   }
@@ -103,7 +108,6 @@ function current(units) {
     },
     as_of: '2026-11-15T00:00:00Z',
     model_run_initialized_at: '2026-11-15T00:00:00Z',
-    nowcast_hours: null,
     units,
     attribution: ATTRIBUTION,
   };
@@ -118,8 +122,9 @@ function alerts() {
       {
         id: 'urn:oid:2.49.0.1.840.0.example',
         event: 'Winter Storm Warning',
-        severity: 'Severe',
-        urgency: 'Expected',
+        severity: 'severe',
+        urgency: 'expected',
+        certainty: 'likely',
         headline: 'Winter Storm Warning until 4 PM PST Sunday',
         expires: '2026-11-16T00:00:00Z',
       },
@@ -141,10 +146,12 @@ function route(path, params) {
     const lon = Number(params.get('lon'));
     if (outside(lat, lon)) {
       return [
-        400,
+        404,
         {
           error: 'OUTSIDE_COVERAGE',
           message: `${String(lat)},${String(lon)} is outside the forecast domain (CONUS).`,
+          request_id: 'mock-request',
+          doc_url: 'https://docs.oureawx.com/features/errors/#outside_coverage',
         },
       ];
     }
@@ -162,7 +169,15 @@ function route(path, params) {
   }
   if (/^\/api\/v1\/catalog\/locations\/[^/]+$/.test(path)) return [200, load('catalog-detail')];
   if (path === '/api/v1/attribution') return [200, load('attribution')];
-  return [404, { error: 'NOT_FOUND', message: `No route for ${path}` }];
+  return [
+    404,
+    {
+      error: 'NOT_FOUND',
+      message: `No route for ${path}`,
+      request_id: 'mock-request',
+      doc_url: 'https://docs.oureawx.com/features/errors/#not_found',
+    },
+  ];
 }
 
 /** Starts the mock on `port` (0 = any free port). Resolves to its base URL and a close function. */

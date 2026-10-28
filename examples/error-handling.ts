@@ -9,6 +9,7 @@ try {
 } catch (error) {
   if (error instanceof OutsideCoverageError) {
     console.log(`Outside coverage, HTTP ${String(error.status)}: ${error.message}`);
+    console.log(`  request ${String(error.requestId)}; see ${String(error.docUrl)}`);
   } else if (error instanceof PermissionError) {
     console.log(`Point forecasts need a Pro key (${String(error.code)}).`);
   } else if (error instanceof OureaError) {

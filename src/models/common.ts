@@ -58,12 +58,9 @@ export function isKnown<T extends string>(known: readonly T[], value: string): v
 
 /**
  * THE distribution shape: every ensemble statistic the API serves is one of
- * these, in the request's units. Every field is optional: a missing
- * percentile is absent, never 0.
- *
- * `wind_direction` quantiles are circular: `max` may be numerically less than
- * `min` (the arc wraps through north). The SDK does not "fix" that; use
- * {@link EnsembleStats.windDirectionCircular}.
+ * these, in the request's units (except `wind_direction`, which is circular:
+ * see {@link CircularStats}). Every field is optional: a missing percentile
+ * is absent, never 0.
  */
 export interface Quantiles {
   /** Ensemble mean. For skewed amounts (precipitation, snowfall) prefer `p50` as a headline. */
@@ -88,7 +85,8 @@ export interface Quantiles {
 
 /** The location a forecast, current-conditions or alerts response is for. */
 export interface LocationRef {
-  readonly slug: string;
+  /** `null` for a coordinate forecast that resolved to no named location. */
+  readonly slug: string | null;
   /** Lowercase USPS state code. */
   readonly state: string;
   readonly name: string;
@@ -96,7 +94,8 @@ export interface LocationRef {
   readonly lon: number;
   /** Elevation in metres, whatever the request's units. */
   readonly elevationM: number;
-  readonly type: LocationType;
+  /** `null` for a coordinate forecast that resolved to no named location. */
+  readonly type: LocationType | null;
   /** IANA time zone, which the `daily` rows follow. */
   readonly timezone: string;
 }
@@ -119,7 +118,7 @@ export interface LocationSummary {
   readonly type: LocationType;
   readonly timezone: string;
   readonly county: string;
-  readonly description?: string | null;
+  readonly description?: string;
   readonly elevations?: readonly LocationElevation[];
 }
 
@@ -144,8 +143,12 @@ export interface ModelEntry {
 export interface ActiveAlert {
   readonly id: string;
   readonly event: string;
-  readonly severity: string;
-  readonly urgency: string;
+  /** The NWS severity, snake_case. Treat an unknown value as `unknown`. */
+  readonly severity: Open<'extreme' | 'severe' | 'moderate' | 'minor' | 'unknown'>;
+  /** The NWS urgency, snake_case. */
+  readonly urgency: Open<'immediate' | 'expected' | 'future' | 'past' | 'unknown'>;
+  /** The NWS certainty, snake_case. */
+  readonly certainty: Open<'observed' | 'likely' | 'possible' | 'unlikely' | 'unknown'>;
   readonly headline: string;
   readonly onset?: string;
   readonly expires: string;

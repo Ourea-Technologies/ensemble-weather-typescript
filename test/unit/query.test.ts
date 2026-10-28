@@ -52,9 +52,9 @@ describe('QueryBuilder', () => {
     expect(q.toString()).toBe('include_past=true&nowcast=false&sources=snotel%2Craws');
   });
 
-  it('sorts and de-duplicates a repeated parameter', () => {
-    expect(new QueryBuilder().repeated('capability', ['swe', 'air_temp', 'swe']).toString()).toBe(
-      'capability=air_temp&capability=swe',
+  it('sorts and de-duplicates a comma list', () => {
+    expect(new QueryBuilder().sortedList('capability', ['swe', 'air_temp', 'swe']).toString()).toBe(
+      'capability=air_temp%2Cswe',
     );
   });
 

@@ -18,7 +18,9 @@ const forecast = await ourea.getForecast('or/mt-hood-meadows', {
 
 for (const p of forecast.probabilities ?? []) {
   const chance =
-    p.probability === null ? 'not covered yet' : `${String(Math.round(p.probability * 100))}%`;
+    p.probability === null
+      ? `no value (${String(p.nullReason)})`
+      : `${String(Math.round(p.probability * 100))}%`;
   const window = `${String(p.windowStartHours)}-${String(p.windowEndHours)} h`;
   console.log(
     `${p.variable} ${p.op} ${String(p.threshold)} (${p.aggregation}, ${window}): ${chance} of ${String(p.members)} members`,

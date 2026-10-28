@@ -188,25 +188,17 @@ function windowText({ start, end }: WindowSpan): string {
   return start === 0 ? `${String(end)}h` : `${String(start)}-${String(end)}h`;
 }
 
-/** @internal A term in canonical wire form, with its mapping key. */
+/**
+ * @internal A term in canonical wire form. `text` is its canonical spelling:
+ * the server echoes it as the result's `term`, so it is also the mapping key.
+ */
 export interface WireTerm {
-  readonly key: string;
   readonly text: string;
   readonly variable: string;
   readonly op: string;
   readonly window: WindowSpan;
   readonly aggregation: Aggregation;
   readonly threshold: number;
-}
-
-function wireKey(
-  variable: string,
-  op: string,
-  threshold: string,
-  window: WindowSpan,
-  aggregation: string,
-): string {
-  return `${variable}|${op}|${threshold}|${String(window.start)}|${String(window.end)}|${aggregation}`;
 }
 
 /** @internal Validates, converts and rounds one probability term. */
@@ -239,7 +231,6 @@ export function wireProbabilityTerm(term: ProbabilityTerm, units: UnitSystem): W
   const parts = [term.variable, term.op, threshold, windowText(window)];
   if (aggregation !== defaultAggregation) parts.push(aggregation);
   return {
-    key: wireKey(term.variable, term.op, threshold, window, aggregation),
     text: parts.join(':'),
     variable: term.variable,
     op: term.op,
@@ -264,7 +255,10 @@ function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
 
-/** @internal The terms of a request: caller order (for mapping back) and the canonical query value. */
+/**
+ * @internal The terms of a request: their canonical spellings in caller order
+ * (for mapping results back by `term`) and the canonical query value.
+ */
 export interface WireTerms {
   readonly callerKeys: readonly string[];
   readonly query: string;
@@ -273,12 +267,12 @@ export interface WireTerms {
 /** @internal Builds the canonical `prob` value: de-duplicated, sorted, `,`-joined. */
 export function wireProbabilities(terms: readonly ProbabilityTerm[], units: UnitSystem): WireTerms {
   const wire = terms.map((t) => wireProbabilityTerm(t, units));
-  return { callerKeys: wire.map((w) => w.key), query: canonicalJoin(wire) };
+  return { callerKeys: wire.map((w) => w.text), query: canonicalJoin(wire) };
 }
 
 function canonicalJoin(wire: readonly WireTerm[]): string {
   const unique = new Map<string, WireTerm>();
-  for (const w of wire) if (!unique.has(w.key)) unique.set(w.key, w);
+  for (const w of wire) if (!unique.has(w.text)) unique.set(w.text, w);
   return [...unique.values()]
     .sort(compareTerms)
     .map((w) => w.text)
@@ -297,7 +291,6 @@ export function wireTotals(terms: readonly TotalTerm[]): WireTerms {
     }
     const window = windowSpan(term.window, what);
     return {
-      key: wireKey(term.variable, '', '', window, 'total'),
       text: `${term.variable}:${windowText(window)}`,
       variable: term.variable,
       op: '',
@@ -306,43 +299,5 @@ export function wireTotals(terms: readonly TotalTerm[]): WireTerms {
       threshold: 0,
     };
   });
-  return { callerKeys: wire.map((w) => w.key), query: canonicalJoin(wire) };
-}
-
-/** @internal The mapping key of a probability result as the server returned it. */
-export function probabilityResultKey(
-  result: {
-    variable: string;
-    op: string;
-    threshold: number;
-    windowStartHours: number;
-    windowEndHours: number;
-    aggregation: string;
-  },
-  units: UnitSystem,
-): string {
-  const variable = result.variable as ProbabilityVariable;
-  const decimals = VARIABLES.includes(variable) ? precision(variable, units) : 0;
-  return wireKey(
-    result.variable,
-    result.op,
-    roundThreshold(result.threshold, decimals),
-    { start: result.windowStartHours, end: result.windowEndHours },
-    result.aggregation,
-  );
-}
-
-/** @internal The mapping key of a window total as the server returned it. */
-export function windowTotalKey(result: {
-  variable: string;
-  windowStartHours: number;
-  windowEndHours: number;
-}): string {
-  return wireKey(
-    result.variable,
-    '',
-    '',
-    { start: result.windowStartHours, end: result.windowEndHours },
-    'total',
-  );
+  return { callerKeys: wire.map((w) => w.text), query: canonicalJoin(wire) };
 }

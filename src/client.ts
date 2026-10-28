@@ -8,7 +8,7 @@
 import { MemoryCache, type CacheStore } from './cache.js';
 import { OureaError, UsageError } from './errors.js';
 import { camelize } from './internal/camel.js';
-import { encodeRfc3986, formatNumber, QueryBuilder } from './internal/query.js';
+import { encodeRfc3986, QueryBuilder } from './internal/query.js';
 import { isBrowser, readEnv, runtimeToken } from './internal/runtime.js';
 import {
   systemClock,
@@ -27,9 +27,11 @@ import type {
   CatalogStationPage,
   LocationsResponse,
   RunsResponse,
+  RunInfo,
   SearchLocationsResponse,
-  StormReportCard,
-  StormReportsResponse,
+  StationNetwork,
+  StationStatus,
+  TemplateVariant,
 } from './models/catalog.js';
 import type { LocationSummary, LocationType } from './models/common.js';
 import type {
@@ -41,8 +43,6 @@ import type {
 import type { ForecastResponse, ProbabilityResult, WindowTotal } from './models/forecast.js';
 import { PageRequest } from './paging.js';
 import {
-  probabilityResultKey,
-  windowTotalKey,
   wireProbabilities,
   wireTotals,
   type ProbabilityTerm,
@@ -150,10 +150,12 @@ export interface ForecastOptions extends RequestOptions {
   readonly prob?: readonly ProbabilityTerm[];
   /** Window totals (storm totals) to compute server-side, answered in `windowTotals`. */
   readonly totals?: readonly TotalTerm[];
-  /** Opt-in serve-path diagnostics. */
-  readonly diagnostics?: readonly ('provenance' | 'ptype')[];
-  /** Which "feels like" indices to serve. Default `['nws']`. */
-  readonly feelsLike?: readonly ('nws' | 'utci')[];
+  /** Opt-in serve-path diagnostics: `provenance` adds each hour's `provenance` tags. */
+  readonly diagnostics?: readonly 'provenance'[];
+  /** Opt-in forecast variables: `ensemble.skinTemperature` and `ensemble.mslp`. */
+  readonly include?: readonly ('skin_temperature' | 'mslp')[];
+  /** Which "feels like" indices to serve. Default (and today the only one) `['nws']`. */
+  readonly feelsLike?: readonly 'nws'[];
 }
 
 /** Options for a named location's forecast. */
@@ -207,8 +209,8 @@ export interface ListCatalogLocationsOptions extends RequestOptions {
   readonly admin1?: string;
   /** ISO 3166-1 alpha-2 code, e.g. `US`. */
   readonly country?: string;
-  readonly type?: string;
-  readonly template?: string;
+  readonly type?: LocationType;
+  readonly template?: TemplateVariant;
   /** Page size (1..100). Default 20. */
   readonly limit?: number;
   readonly cursor?: string;
@@ -218,24 +220,28 @@ export interface ListCatalogLocationsOptions extends RequestOptions {
 export interface ListCatalogStationsOptions extends RequestOptions {
   readonly admin1?: string;
   readonly country?: string;
-  readonly network?: readonly string[];
+  /** Observation networks, snake_case (`snotel`, `raws`). */
+  readonly network?: readonly StationNetwork[];
   /** Stations having all of these capabilities. */
   readonly capability?: readonly string[];
-  readonly status?: string;
+  readonly status?: StationStatus;
   readonly limit?: number;
   readonly cursor?: string;
 }
 
 /** Options for a catalog detail. */
 export interface CatalogDetailOptions extends RequestOptions {
-  readonly include?: readonly ('content' | 'template' | 'ads')[];
+  readonly include?: readonly ('content' | 'template')[];
   /** BCP-47 locale for `content`. Default `en`. */
   readonly locale?: string;
 }
 
-/** Options for lists with only a size. */
-export interface LimitOptions extends RequestOptions {
+/** Options for the model-run list. */
+export interface RunsOptions extends RequestOptions {
+  /** Page size (1..100). Default 10. */
   readonly limit?: number;
+  /** Start from this cursor. */
+  readonly cursor?: string;
 }
 
 interface ResolvedConfig {
@@ -337,22 +343,21 @@ function attachMeta<T extends object>(data: T, meta: ResponseMeta): Result<T> {
   return data as Result<T>;
 }
 
-/** Puts server answers back in the caller's order, by their reference class. */
-function reorder<T>(
+/**
+ * Puts server answers back in the caller's order, by the canonical `term`
+ * each one echoes (BEHAVIOR.md sections 4 and 5), never by position.
+ */
+function reorder<T extends { readonly term: string }>(
   answers: readonly T[],
-  callerKeys: readonly string[],
-  keyOf: (answer: T) => string,
+  callerTerms: readonly string[],
   what: string,
 ): T[] {
-  const byKey = new Map<string, T>();
-  for (const a of answers) byKey.set(keyOf(a), a);
-  return callerKeys.map((key) => {
-    const answer = byKey.get(key);
+  const byTerm = new Map<string, T>();
+  for (const a of answers) byTerm.set(a.term, a);
+  return callerTerms.map((term) => {
+    const answer = byTerm.get(term);
     if (answer === undefined) {
-      throw new OureaError(
-        'unknown',
-        `The response has no ${what} for the term ${key.replaceAll('|', ':')}.`,
-      );
+      throw new OureaError('unknown', `The response has no ${what} for the term ${term}.`);
     }
     return answer;
   });
@@ -492,7 +497,8 @@ export class Ourea {
       .set('nowcast', options.nowcast, true)
       .raw('prob', prob?.query)
       .raw('totals', totals?.query)
-      .list('diagnostics', options.diagnostics)
+      .sortedList('diagnostics', options.diagnostics)
+      .sortedList('include', options.include)
       .set('feels_like', feelsLike === '' ? undefined : feelsLike, 'nws');
     return { query, prob: prob?.callerKeys, totals: totals?.callerKeys };
   }
@@ -513,15 +519,10 @@ export class Ourea {
     // A body without the field answers nothing: it stays absent (never a
     // substituted value). A body with the field must answer every term.
     if (prob !== undefined && result.probabilities !== undefined) {
-      answered.probabilities = reorder(
-        result.probabilities,
-        prob,
-        (r) => probabilityResultKey(r, result.units),
-        'probability',
-      );
+      answered.probabilities = reorder(result.probabilities, prob, 'probability');
     }
     if (totals !== undefined && result.windowTotals !== undefined) {
-      answered.windowTotals = reorder(result.windowTotals, totals, windowTotalKey, 'window total');
+      answered.windowTotals = reorder(result.windowTotals, totals, 'window total');
     }
     return result;
   }
@@ -735,8 +736,8 @@ export class Ourea {
         const query = new QueryBuilder()
           .set('admin1', options.admin1)
           .set('country', options.country)
-          .list('network', options.network)
-          .repeated('capability', options.capability)
+          .sortedList('network', options.network)
+          .sortedList('capability', options.capability)
           .set('status', options.status)
           .set('limit', options.limit, 20)
           .set('cursor', cursor);
@@ -771,28 +772,19 @@ export class Ourea {
     );
   }
 
-  /** The served model run and the available ones (operation `getAvailableRuns`). */
-  async getRuns(options: LimitOptions = {}): Promise<Result<RunsResponse>> {
-    const query = new QueryBuilder().set('limit', options.limit, 10);
-    return await this.#get('getAvailableRuns', '/runs', query, false, options.signal);
-  }
-
-  /** Recent storm verification reports (operation `getStormReports`). */
-  async getStormReports(options: LimitOptions = {}): Promise<Result<StormReportsResponse>> {
-    const query = new QueryBuilder().set('limit', options.limit, 20);
-    return await this.#get('getStormReports', '/storm-reports', query, false, options.signal);
-  }
-
-  /** One storm report (operation `getStormReport`). */
-  async getStormReport(id: number, options: RequestOptions = {}): Promise<Result<StormReportCard>> {
-    if (!Number.isInteger(id))
-      throw new UsageError(`A storm report id is an integer; got ${String(id)}.`);
-    return await this.#get(
-      'getStormReport',
-      `/storm-reports/${formatNumber(id)}`,
-      new QueryBuilder(),
-      false,
-      options.signal,
+  /**
+   * The served model run and the available ones, newest first (operation
+   * `getAvailableRuns`). Await it for a page; `for await` it for every run.
+   */
+  getRuns(options: RunsOptions = {}): PageRequest<RunsResponse, RunInfo> {
+    return new PageRequest(
+      (cursor) => {
+        const query = new QueryBuilder().set('limit', options.limit, 10).set('cursor', cursor);
+        return this.#get<RunsResponse>('getAvailableRuns', '/runs', query, false, options.signal);
+      },
+      (page) => page.runs,
+      (page) => page.nextCursor,
+      options.cursor,
     );
   }
 

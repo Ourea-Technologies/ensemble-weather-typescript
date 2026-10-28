@@ -9,7 +9,7 @@ import type {
   Open,
   ResponseAttribution,
 } from './common.js';
-import type { TimeSeriesPoint } from './forecast.js';
+import type { ConditionIcon, TimeSeriesPoint } from './forecast.js';
 
 /** The conditions now, from the nowcast or the model. */
 export interface CurrentConditions {
@@ -18,13 +18,13 @@ export interface CurrentConditions {
   readonly feelsLike?: number;
   readonly condition: string;
   readonly conditionText: string;
-  readonly conditionIcon: string;
+  readonly conditionIcon: ConditionIcon;
   readonly windSpeed: number;
   readonly windGust?: number;
   readonly windDirection: number;
   readonly relativeHumidity?: number;
   readonly dewpoint?: number;
-  readonly precipProbability?: number;
+  readonly precipitationProbability?: number;
   /** Where these values came from. */
   readonly source: Open<'nowcast' | 'model'>;
   readonly station?: CurrentStation;
@@ -32,6 +32,8 @@ export interface CurrentConditions {
 
 /** The station a nowcast reading came from. */
 export interface CurrentStation {
+  /** The station's id in its network. */
+  readonly stationId: string;
   readonly name: string;
   readonly observationTime: string;
 }
@@ -50,7 +52,7 @@ export interface SensorObservation {
   readonly windDirection?: number;
   readonly pressure?: number;
   readonly precipitation?: number;
-  readonly precipRate?: number;
+  readonly precipitationRate?: number;
   readonly reflectivity?: number;
   readonly pavementTemp?: number;
   readonly subsurfaceTemp?: number;
@@ -76,8 +78,11 @@ export interface CurrentResponse {
   readonly current: CurrentConditions | null;
   readonly asOf: string;
   readonly modelRunInitializedAt: string | null;
-  /** The obs-blended band, with `include: ['nowcast_hours']`. */
-  readonly nowcastHours: readonly TimeSeriesPoint[] | null;
+  /**
+   * The obs-blended band: present only with `include: ['nowcast_hours']`, and
+   * then `null` when no cycle is servable.
+   */
+  readonly nowcastHours?: readonly TimeSeriesPoint[] | null;
   readonly units: UnitSystem;
   readonly attribution: ResponseAttribution;
   readonly nowcastUnavailable?: readonly Open<

@@ -13,7 +13,7 @@ for (const total of forecast.windowTotals ?? []) {
   const r = total.quantiles === null ? undefined : range(total.quantiles, 'p10', 'p90');
   console.log(
     r === undefined
-      ? `${total.variable} ${window}: not covered by this run`
+      ? `${total.variable} ${window}: no value (${String(total.nullReason)})`
       : `${total.variable} ${window}: ${String(r.low)} to ${String(r.high)} (p10-p90), median ${String(total.quantiles?.p50)}, ${String(total.members)} members`,
   );
 }
