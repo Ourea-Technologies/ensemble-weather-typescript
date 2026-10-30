@@ -94,15 +94,15 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
       include: ['nowcast_hours'],
     }),
   getCurrentByCoordinates: (c) =>
-    c.getCurrentAt(
+    c.getPointCurrent(
       { lat: 1, lon: 2, elevationM: 3 },
       { units: 'imperial', sources: ['a'], excludeSources: ['b'], include: ['nowcast_hours'] },
     ),
   getLocationAlerts: (c) => c.getAlerts('or/x'),
-  getAlertsByCoordinates: (c) => c.getAlertsAt({ lat: 1, lon: 2 }),
+  getAlertsByCoordinates: (c) => c.getPointAlerts({ lat: 1, lon: 2 }),
   getNearbyLocations: (c) => c.getNearby('or/x', { units: 'imperial', limit: 5, radiusKm: 10 }),
   getNearbyByCoordinates: (c) =>
-    c.getNearbyAt({ lat: 1, lon: 2 }, { units: 'imperial', limit: 5, radiusKm: 10 }),
+    c.getPointNearby({ lat: 1, lon: 2 }, { units: 'imperial', limit: 5, radiusKm: 10 }),
   searchLocations: (c) =>
     c.searchLocations('hood', { state: 'or', county: 'Hood River', type: 'ski_area', limit: 5 }),
   getAllLocations: async (c) =>

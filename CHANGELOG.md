@@ -10,6 +10,9 @@ The v1 contract as deployed (ensemble-weather-spec 8b85fea, KAN-1561).
 
 ### Changed
 
+- The coordinate methods follow the operation ids: `getCurrentAt` is
+  `getPointCurrent`, `getAlertsAt` is `getPointAlerts` and `getNearbyAt` is
+  `getPointNearby`, beside `getPointForecast`. There are no aliases.
 - `precip*` fields are `precipitation*` everywhere: `DailyForecast.totalPrecipitation`,
   `totalPrecipitationIfWet`, `precipitationProbability`,
   `precipitationOccurrenceProbability`, `precipitationType`, `precipitationDisplay`;

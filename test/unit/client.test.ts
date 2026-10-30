@@ -129,9 +129,9 @@ describe('every operation builds its canonical request', () => {
       'lat=45.3311&lon=-121.6649&max_hours=48&members=true',
     ],
     [
-      'getCurrentAt',
+      'getPointCurrent',
       (c: Ourea) =>
-        c.getCurrentAt(
+        c.getPointCurrent(
           { lat: 45.33, lon: -121.71, elevationM: 1829 },
           { include: ['nowcast_hours'] },
         ),
@@ -139,8 +139,8 @@ describe('every operation builds its canonical request', () => {
       'elevation_m=1829&include=nowcast_hours&lat=45.33&lon=-121.71',
     ],
     [
-      'getAlertsAt',
-      (c: Ourea) => c.getAlertsAt({ lat: 45.33, lon: -121.71 }),
+      'getPointAlerts',
+      (c: Ourea) => c.getPointAlerts({ lat: 45.33, lon: -121.71 }),
       '/api/v1/alerts',
       'lat=45.33&lon=-121.71',
     ],
@@ -151,8 +151,8 @@ describe('every operation builds its canonical request', () => {
       'radius_km=25',
     ],
     [
-      'getNearbyAt',
-      (c: Ourea) => c.getNearbyAt({ lat: 1, lon: 2 }, { limit: 5 }),
+      'getPointNearby',
+      (c: Ourea) => c.getPointNearby({ lat: 1, lon: 2 }, { limit: 5 }),
       '/api/v1/nearby',
       'lat=1&limit=5&lon=2',
     ],

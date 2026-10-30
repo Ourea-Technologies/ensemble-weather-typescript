@@ -577,7 +577,7 @@ export class Ourea {
   }
 
   /** Current conditions at coordinates (operation `getCurrentByCoordinates`). */
-  async getCurrentAt(
+  async getPointCurrent(
     point: PointWithElevation,
     options: CurrentOptions = {},
   ): Promise<Result<CurrentResponse>> {
@@ -598,7 +598,7 @@ export class Ourea {
   }
 
   /** Active alerts at coordinates (operation `getAlertsByCoordinates`). */
-  async getAlertsAt(
+  async getPointAlerts(
     point: Coordinates,
     options: RequestOptions = {},
   ): Promise<Result<AlertsResponse>> {
@@ -629,7 +629,7 @@ export class Ourea {
   }
 
   /** Locations near coordinates (operation `getNearbyByCoordinates`). */
-  async getNearbyAt(
+  async getPointNearby(
     point: Coordinates,
     options: NearbyOptions = {},
   ): Promise<Result<NearbyPointResponse>> {
