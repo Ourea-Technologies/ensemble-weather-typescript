@@ -36,6 +36,14 @@ const ROOTS = [
   'PublicCatalogStationDetail',
   'AttributionRegistry',
   'RunsResponse',
+  'ExploreResponse',
+  'CompositionResponse',
+  'SeasonResponse',
+  'SnowTrendResponse',
+  'SnowpackResponse',
+  'SnowpackPlumeResponse',
+  'AlertOutlineCollection',
+  'AvalancheZoneCollection',
 ];
 // Schemas that are not object models in the SDK.
 const NOT_OBJECTS = new Set([
@@ -46,15 +54,27 @@ const NOT_OBJECTS = new Set([
   'ConditionIcon',
   'NextCursor',
   'NullReason',
+  'AlertClass',
+  'SnowCharacter',
+  'PassStatusLevel',
+  'MemberColumn',
+  'NullableNumbers',
 ]);
 // Inline objects, by `<Schema>.<field>`, and the SDK type that models them.
 const INLINE = {
-  'LocationSummary.elevations': 'LocationElevation',
   'CurrentConditions.station': 'CurrentStation',
   'TimeSeriesPoint.members': 'ModelMembers',
   'RunsResponse.served': 'ServedRun',
   'RunsResponse.runs': 'RunInfo',
   'ModelMeans.items': 'ModelMean',
+  'DailyForecast.measured_precipitation': 'MeasuredPrecipitation',
+  'SnowTrendResponse.elevation': 'SnowTrendResponseElevation',
+  'SnowTrendGrid.runs': 'SnowTrendRun',
+  'SnowpackResponse.definitions': 'SnowpackResponseDefinitions',
+  'SnowpackRun.model': 'SnowpackModel',
+  'SnowpackSpot.anchor': 'SnowpackSpotAnchor',
+  'SnowpackPlumeResponse.depth': 'SnowpackPlumeDepth',
+  'SnowpackPlumeResponse.models': 'SnowpackPlumeModel',
 };
 // Deliberate differences from the schema, each with its reason.
 const ALL_OPTIONAL = {

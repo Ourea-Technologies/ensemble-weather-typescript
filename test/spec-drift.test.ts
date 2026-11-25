@@ -104,7 +104,17 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
   getNearbyByCoordinates: (c) =>
     c.getPointNearby({ lat: 1, lon: 2 }, { units: 'imperial', limit: 5, radiusKm: 10 }),
   searchLocations: (c) =>
-    c.searchLocations('hood', { state: 'or', county: 'Hood River', type: 'ski_area', limit: 5 }),
+    c.searchLocations('hood', {
+      state: 'or',
+      county: 'Hood River',
+      type: 'ski_area',
+      limit: 5,
+      sort: 'snow_5d',
+      order: 'asc',
+      near: { lat: 45, lon: -121 },
+      radiusKm: 20,
+      units: 'imperial',
+    }),
   getAllLocations: async (c) =>
     c.listLocations({ type: 'ski_area', units: 'imperial', limit: 5, cursor: 'c' }).then((p) => p),
   getLocations: async (c) =>
@@ -138,6 +148,34 @@ const CALLS: Record<string, (c: Ourea) => Promise<unknown>> = {
   getCatalogStation: (c) => c.getCatalogStation('x', { include: ['content'], locale: 'es' }),
   getAvailableRuns: async (c) => c.getRuns({ limit: 5, cursor: 'c' }).then((p) => p),
   getAttribution: (c) => c.getAttribution(),
+  explore: async (c) =>
+    c
+      .explore('snow_5d', {
+        order: 'asc',
+        type: 'ski_area',
+        state: 'or',
+        near: { lat: 45, lon: -121 },
+        radiusKm: 50,
+        elevationMin: 1000,
+        elevationMax: 2000,
+        points: 'all',
+        limit: 10,
+        cursor: 'c',
+        units: 'imperial',
+      })
+      .then((p) => p),
+  getComposition: (c) => c.getComposition(),
+  getLocationSeason: (c) =>
+    c.getSeason('or/x', { waterYear: 2027, include: ['daily'], units: 'imperial' }),
+  getLocationSnowTrend: (c) => c.getSnowTrend('or/x', { elevation: 'summit', units: 'imperial' }),
+  getLocationSnowpack: (c) => c.getSnowpack('or/x', { units: 'imperial' }),
+  getLocationSnowpackPlume: (c) => c.getSnowpackPlume('or/x', { units: 'imperial' }),
+  getAlertOutlines: (c) =>
+    c.getAlertOutlines({
+      classes: ['winter', 'wind'],
+      bbox: { west: -125, south: 41, east: -116, north: 49 },
+    }),
+  getAvalancheZones: (c) => c.getAvalancheZones(),
 };
 
 /** Out of SDK scope for 0.x (BEHAVIOR.md section 3). */
@@ -192,7 +230,14 @@ describe('spec drift', () => {
     }
   })(spec.components.schemas);
 
-  const OPAQUE = new Set(['body', 'config', 'externalLinks', 'lastReportSummary']);
+  const OPAQUE = new Set([
+    'body',
+    'config',
+    'externalLinks',
+    'lastReportSummary',
+    'layerForm',
+    'surface',
+  ]);
   function snakeize(value: unknown): unknown {
     if (Array.isArray(value)) return value.map(snakeize);
     if (value === null || typeof value !== 'object') return value;

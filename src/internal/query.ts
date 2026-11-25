@@ -65,10 +65,17 @@ export class QueryBuilder {
     return this;
   }
 
-  /** Adds a comma-separated list (encoded as one value), omitted when empty. */
+  /**
+   * Adds a comma-separated list, omitted when empty: each item is encoded and
+   * the separating commas stay literal (BEHAVIOR.md 3.1 rule 5), the server's
+   * canonical spelling and the edge-cache key every SDK shares.
+   */
   list(name: string, values: readonly string[] | undefined, defaultValue?: string): this {
     if (values === undefined || values.length === 0) return this;
-    return this.set(name, values.join(','), defaultValue);
+    const joined = values.join(',');
+    if (defaultValue !== undefined && joined === defaultValue) return this;
+    this.#pairs.push([name, values.map(encodeRfc3986).join(',')]);
+    return this;
   }
 
   /** Adds a parameter the caller has already encoded (`prob`, `totals`). */
@@ -81,6 +88,13 @@ export class QueryBuilder {
   sortedList(name: string, values: readonly string[] | undefined): this {
     if (values === undefined) return this;
     return this.list(name, [...new Set(values)].sort());
+  }
+
+  /** A copy, so a paged request can add its cursor to the same base. */
+  clone(): QueryBuilder {
+    const copy = new QueryBuilder();
+    for (const [name, encoded] of this.#pairs) copy.raw(name, encoded);
+    return copy;
   }
 
   /** The query string, without the leading `?`; empty when nothing is set. */

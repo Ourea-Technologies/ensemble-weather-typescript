@@ -9,6 +9,9 @@ const OPAQUE_FIELDS: ReadonlySet<string> = new Set([
   'config',
   'external_links',
   'last_report_summary',
+  // SnowpackResponse.definitions: code -> text maps whose keys are data.
+  'layer_form',
+  'surface',
 ]);
 
 /** `elevation_m` -> `elevationM`, `next_24h` -> `next24h`. */

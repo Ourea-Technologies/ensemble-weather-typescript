@@ -163,6 +163,16 @@ function route(path, params) {
       forecast(params, { lat, lon, elevation: elevation === null ? undefined : Number(elevation) }),
     ];
   }
+  const sub =
+    /^\/api\/v1\/locations\/[^/]+\/[^/]+\/(season|snow-trend|snowpack|snowpack\/plume)$/.exec(path);
+  if (sub !== null) return [200, load(sub[1] === 'snowpack/plume' ? 'snowpack-plume' : sub[1])];
+  const simple = {
+    '/api/v1/explore': 'explore',
+    '/api/v1/composition': 'composition',
+    '/api/v1/alerts/outlines': 'alert-outlines',
+    '/api/v1/avalanche/zones': 'avalanche-zones',
+  };
+  if (path in simple) return [200, load(simple[path])];
   if (path === '/api/v1/search/locations') return [200, load('search')];
   if (path === '/api/v1/catalog/locations') {
     return [200, load(params.get('cursor') === 'c2' ? 'catalog-page-2' : 'catalog-page-1')];

@@ -49,12 +49,12 @@ describe('QueryBuilder', () => {
       .set('include_past', true, false)
       .list('sources', ['snotel', 'raws'])
       .list('empty', []);
-    expect(q.toString()).toBe('include_past=true&nowcast=false&sources=snotel%2Craws');
+    expect(q.toString()).toBe('include_past=true&nowcast=false&sources=snotel,raws');
   });
 
   it('sorts and de-duplicates a comma list', () => {
     expect(new QueryBuilder().sortedList('capability', ['swe', 'air_temp', 'swe']).toString()).toBe(
-      'capability=air_temp%2Cswe',
+      'capability=air_temp,swe',
     );
   });
 

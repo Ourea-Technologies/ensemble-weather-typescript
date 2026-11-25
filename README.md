@@ -124,6 +124,26 @@ carries its `nullReason` (`window_not_covered`, `too_few_members`,
 less than `from`). More at
 [docs.oureawx.com/concepts/probabilities](https://docs.oureawx.com/concepts/probabilities).
 
+## Every route
+
+| Method on `Ourea`                                                                                         | Route                                                                                                              | Access         |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------- |
+| `getForecast`, `getPointForecast`                                                                         | a named location's forecast; one at coordinates                                                                    | anonymous; Pro |
+| `getCurrent`, `getPointCurrent`                                                                           | current conditions (a mountain pass also gets `pass`)                                                              | anonymous; Pro |
+| `getAlerts`, `getPointAlerts`                                                                             | active alerts                                                                                                      | anonymous; Pro |
+| `getNearby`, `getPointNearby`                                                                             | nearby locations                                                                                                   | anonymous      |
+| `searchLocations`                                                                                         | search by name, optionally `sort` by a metric and `near` a point                                                   | anonymous      |
+| `explore`                                                                                                 | places ranked by a metric (`snow_5d`, `base_depth`, `season_precip`, ...); await a page or `for await` every place | anonymous      |
+| `getSeason`                                                                                               | observed season-to-date precipitation and snowfall                                                                 | anonymous      |
+| `getSnowTrend`                                                                                            | each recent run's daily snowfall, run by run                                                                       | Plus or Pro    |
+| `getSnowpack`, `getSnowpackPlume`                                                                         | the modelled snowpack and its snow-depth plume (beta)                                                              | anonymous      |
+| `getAlertOutlines`, `getAvalancheZones`                                                                   | GeoJSON for maps: alert outlines, avalanche zones and ratings                                                      | anonymous      |
+| `listLocations`, `listCatalogLocations`, `getCatalogLocation`, `listCatalogStations`, `getCatalogStation` | locations and the catalog                                                                                          | anonymous      |
+| `getRuns`, `getComposition`, `getAttribution`                                                             | served runs, the blend's models and members, data credits                                                          | anonymous      |
+
+`members: 'plume'` on a forecast returns the plume view: columns in
+`forecast.plume`, ready to draw.
+
 ## More examples
 
 | Example                                                   | Shows                                                                   |
@@ -136,6 +156,7 @@ less than `from`). More at
 | [`current-and-alerts.ts`](examples/current-and-alerts.ts) | current conditions and active alerts for a location                     |
 | [`error-handling.ts`](examples/error-handling.ts)         | catching an out-of-coverage error by its type; reading rate-limit state |
 | [`units.ts`](examples/units.ts)                           | the same forecast in metric and imperial                                |
+| [`snow-report.ts`](examples/snow-report.ts)               | `explore` rankings, a season to date, and the run-by-run snow trend     |
 
 Run them all against a local mock of the API with `npm run build && npm run examples`.
 

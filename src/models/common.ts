@@ -101,8 +101,12 @@ export interface LocationRef {
 }
 
 /** A named elevation of a location (ski areas: base, mid, summit). */
-export interface LocationElevation {
+export interface ElevationSummary {
+  /** The elevation's id: the name to pass in `elevations`. */
   readonly name: string;
+  /** What the place is called, for display ("K-1 Lodge"). */
+  readonly displayName?: string;
+  /** In the request's length units (m, ft), to 0.1. */
   readonly elevation: number;
   readonly default?: boolean;
 }
@@ -119,7 +123,7 @@ export interface LocationSummary {
   readonly timezone: string;
   readonly county: string;
   readonly description?: string;
-  readonly elevations?: readonly LocationElevation[];
+  readonly elevations?: readonly ElevationSummary[];
 }
 
 /** The `attribution` block of a forecast, current-conditions or alerts response. */
@@ -137,6 +141,17 @@ export interface ModelEntry {
   readonly id: string;
   readonly cycle?: string;
   readonly members?: number;
+  /**
+   * The `member_id`s of this model's members served for display only, on a response that asks
+   * for members: `rrfs` 1..5 are the RRFS ensemble's m001..m005, beside the deterministic run
+   * (0).
+   */
+  readonly displayMembers?: readonly number[];
+  /**
+   * How the `display_members`' `snowfall` and `cumulative_snowfall` are made, present exactly
+   * when `display_members` is.
+   */
+  readonly displayMembersSnowfall?: Open<'borrowed_from_deterministic'>;
 }
 
 /** An active weather alert (NWS). */
@@ -153,4 +168,25 @@ export interface ActiveAlert {
   readonly onset?: string;
   readonly expires: string;
   readonly ends?: string;
+  /** When NWS issued this message. */
+  readonly sent?: string;
+  /** The CAP message type, snake_case. */
+  readonly messageType?: Open<'alert' | 'update' | 'cancel'>;
+  /** The ids of the messages this one replaces. */
+  readonly references?: readonly string[];
+  readonly senderName?: string;
+  /** The places this message covers, as NWS words them. */
+  readonly areaDesc?: string;
+  /** The full NWS text, unedited. */
+  readonly description?: string;
+  /** What NWS says to do, unedited. */
+  readonly instruction?: string;
+  /** The NWS forecast page for this location. */
+  readonly sourceUrl?: string;
+  /** The stable identity of this event. */
+  readonly eventKey?: string;
+  /** The VTEC action of this message, lower case. */
+  readonly vtecAction?: Open<
+    'new' | 'con' | 'ext' | 'exa' | 'exb' | 'upg' | 'can' | 'exp' | 'cor' | 'rou'
+  >;
 }

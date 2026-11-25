@@ -70,7 +70,12 @@ describe('configuration', () => {
     await h.client.getNearby('or/mt-hood-meadows');
     await h.client.searchLocations('hood');
     await h.client.getForecast('or/mt-hood-meadows', { units: 'metric' }).catch(() => undefined);
-    expect(h.sent.map(queryOf)).toEqual(['units=imperial', 'units=imperial', 'q=hood', '']);
+    expect(h.sent.map(queryOf)).toEqual([
+      'units=imperial',
+      'units=imperial',
+      'q=hood&units=imperial', // search takes units since spec 15bdeb5 (its explore values)
+      '',
+    ]);
   });
 
   it('withOptions shares the cache but keeps keys apart', async () => {
@@ -167,7 +172,7 @@ describe('every operation builds its canonical request', () => {
       (c: Ourea) =>
         c.getCatalogLocation('mt-hood-meadows', { include: ['content', 'template'], locale: 'en' }),
       '/api/v1/catalog/locations/mt-hood-meadows',
-      'include=content%2Ctemplate',
+      'include=content,template',
     ],
     [
       'getCatalogStation',
@@ -193,7 +198,7 @@ describe('every operation builds its canonical request', () => {
           run: new Date('2026-11-15T00:00:00Z'),
         }),
       '/api/v1/locations/or/x',
-      'diagnostics=provenance&elevations=base%2Csummit&include=mslp%2Cskin_temperature&run=2026-11-15T00%3A00%3A00Z',
+      'diagnostics=provenance&elevations=base,summit&include=mslp,skin_temperature&run=2026-11-15T00%3A00%3A00Z',
     ],
   ] as const)('%s', async (_name, call, path, query) => {
     const h = harness([{ body: '{}' }]);
@@ -232,7 +237,7 @@ describe('every operation builds its canonical request', () => {
       pages.push(p);
     }
     expect(pages).toHaveLength(1);
-    expect(queryOf(h.sent[0])).toBe('capability=air_temp%2Cswe&network=raws%2Csnotel');
+    expect(queryOf(h.sent[0])).toBe('capability=air_temp,swe&network=raws,snotel');
   });
 });
 

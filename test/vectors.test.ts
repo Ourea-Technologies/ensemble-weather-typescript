@@ -116,6 +116,30 @@ async function invoke(client: Ourea, call: VectorCall): Promise<unknown> {
       for await (const item of request) items.push(item.slug);
       return items;
     }
+    case 'getCurrentConditions':
+      return client.getCurrent(where, options);
+    case 'explore': {
+      const { metric, ...exploreArgs } = call.args;
+      const request = client.explore(metric as never, camelize(exploreArgs) as never);
+      if (iterate !== true) return request;
+      const items: string[] = [];
+      for await (const item of request) items.push(item.location.slug ?? '');
+      return items;
+    }
+    case 'getComposition':
+      return client.getComposition(options);
+    case 'getLocationSeason':
+      return client.getSeason(where, options);
+    case 'getLocationSnowTrend':
+      return client.getSnowTrend(where, options);
+    case 'getLocationSnowpack':
+      return client.getSnowpack(where, options);
+    case 'getLocationSnowpackPlume':
+      return client.getSnowpackPlume(where, options);
+    case 'getAlertOutlines':
+      return client.getAlertOutlines(options);
+    case 'getAvalancheZones':
+      return client.getAvalancheZones(options);
     default:
       throw new Error(`the vectors runner has no mapping for operation ${call.operation}`);
   }
@@ -201,8 +225,8 @@ afterEach(() => {
 const files = vectorFiles(VECTORS);
 
 describe('shared vectors', () => {
-  it('finds all 43 vectors', () => {
-    expect(files).toHaveLength(43);
+  it('finds all 52 vectors', () => {
+    expect(files).toHaveLength(52);
   });
 
   for (const file of files) {

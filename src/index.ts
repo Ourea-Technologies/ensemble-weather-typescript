@@ -19,10 +19,14 @@
 export {
   Ourea,
   DEFAULT_BASE_URL,
+  type AlertOutlinesOptions,
+  type BoundingBox,
   type CatalogDetailOptions,
   type ClientOptions,
   type Coordinates,
   type CurrentOptions,
+  type ExploreMetric,
+  type ExploreOptions,
   type FetchLike,
   type ForecastOptions,
   type ListCatalogLocationsOptions,
@@ -36,6 +40,10 @@ export {
   type RequestOptions,
   type RunsOptions,
   type SearchOptions,
+  type SeasonOptions,
+  type SnowTrendOptions,
+  type SortOrder,
+  type UnitsOptions,
 } from './client.js';
 export { MemoryCache, type CacheEntry, type CacheStore, type MemoryCacheOptions } from './cache.js';
 export {

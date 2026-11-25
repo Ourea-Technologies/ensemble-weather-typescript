@@ -8,8 +8,22 @@ import type {
   TotalVariable,
 } from '../probability.js';
 import type { UnitSystem } from '../units.js';
-import type { LocationRef, ModelEntry, Open, Quantiles, ResponseAttribution } from './common.js';
+import type { ModelEntry, Open, Quantiles, ResponseAttribution } from './common.js';
 import type { CurrentConditions } from './current.js';
+import type {
+  AvalancheForecast,
+  DayDeparture,
+  DayNormal,
+  DayPercentile,
+  ForecastLocation,
+  MemberPlume,
+  MemberQuantiles,
+  MembersSpread,
+  PrecipitationByType,
+  PrecipOutlook,
+  SnowLevelRange,
+  SnowOnGround,
+} from './plume.js';
 
 /** A forecast for a named location or a point. */
 export interface ForecastResponse {
@@ -24,7 +38,7 @@ export interface ForecastResponse {
   readonly windowTotals?: readonly WindowTotal[];
   /** Options the server clamped to your tier. */
   readonly applied?: AppliedOptions;
-  readonly location: LocationRef;
+  readonly location: ForecastLocation;
   readonly modelRun: ModelRunInfo;
   /** The unit system every value in this body is in. */
   readonly units: UnitSystem;
@@ -38,7 +52,7 @@ export interface ForecastResponse {
     'observation' | 'radar' | 'cloud' | 'nearest_sensors'
   >[];
   /** Which member view `members` carries (`plume` for Free, `full` for Pro). */
-  readonly membersView?: Open<'plume' | 'full'>;
+  readonly membersView?: Open<'pool' | 'plume' | 'full'>;
   /** Columbia Gorge gap flow at the first served hour, where it applies. */
   readonly gapFlow?: GapFlow;
   readonly nearestSensors?: readonly NearestSensor[];
@@ -46,6 +60,12 @@ export interface ForecastResponse {
   readonly point?: PointInfo;
   readonly current?: CurrentConditions;
   readonly attribution: ResponseAttribution;
+  readonly avalanche?: AvalancheForecast;
+  /**
+   * The snow on the ground at the location's own point at the hour the request is served, from
+   * the snowpack model.
+   */
+  readonly snowOnGround?: SnowOnGround;
 }
 
 /** Thresholds the derived probability fields use. */
@@ -105,6 +125,8 @@ export interface WindowTotal {
   readonly members: number;
   /** Why `quantiles` is `null`; `null` when it is not. */
   readonly nullReason: NullReason | null;
+  /** -- how `quantiles` was computed; `null` exactly when `quantiles` is. */
+  readonly method: Open<'members' | 'ensemble_moments'> | null;
 }
 
 /** Request options the server clamped. */
@@ -161,6 +183,16 @@ export interface ForecastData {
   readonly timeseries?: readonly TimeSeriesPoint[];
   readonly daily?: readonly DailyForecast[];
   readonly snowOutlook?: SnowOutlook;
+  /**
+   * Rolling LIQUID totals over `snow_outlook`'s windows (24 h, 48 h, 72 h, 7 days), with their
+   * ranges.
+   */
+  readonly precipitationOutlook?: PrecipOutlook;
+  /**
+   * Present only with `members=plume`, which serves it INSTEAD of `timeseries`, `daily`,
+   * `snow_outlook` and `precipitation_outlook`.
+   */
+  readonly plume?: MemberPlume;
 }
 
 /** An hourly sky/weather condition. */
@@ -186,6 +218,8 @@ export type HourlyCondition = Open<
   | 'chance_snow'
   | 'snow_likely'
   | 'snow'
+  | 'light_snow'
+  | 'heavy_snow'
   | 'slight_chance_freezing_rain'
   | 'chance_freezing_rain'
   | 'freezing_rain_likely'
@@ -230,6 +264,22 @@ export interface TimeSeriesPoint {
   readonly membersCumulative?: MembersCumulative;
   readonly cumulativePrecipitation?: number;
   readonly cumulativeSnowfall?: number;
+  /**
+   * Whether precipitation was MEASURED in this hour: MRMS published a radar accumulation for
+   * this clock hour (the whole hour just ended, the quarters published so far of the hour in
+   * progress, or an older hour whose ...
+   */
+  readonly measured: boolean;
+  /** The hour's snow character. */
+  readonly snowCharacter?: SnowCharacter;
+  readonly membersSpread?: MembersSpread;
+  /**
+   * The members' 6-HOUR totals ending at this hour -- per quantity (`precipitation`,
+   * `snowfall`), the Quantiles of every member's total over `(valid_time - 6 h, valid_time]`:
+   * the violin of a Utah-style plume, one per 6 h ...
+   */
+  readonly members6h?: MembersCumulative;
+  readonly precipitationByType?: PrecipitationByType;
 }
 
 /** The ensemble distribution of each variable at one hour. */
@@ -255,6 +305,11 @@ export interface EnsembleStats {
   readonly mslp?: Quantiles;
   readonly cape?: Quantiles;
   readonly relativeHumidity?: Quantiles;
+  /**
+   * The snow level on the NWS scale (m MSL, or ft with `units=imperial`): the height of the 0.5
+   * C wet-bulb, where falling snow starts to mix with rain.
+   */
+  readonly snowLevelWetBulb?: Quantiles;
 }
 
 /** A bearing's distribution on the circle, in degrees. */
@@ -336,6 +391,12 @@ export type ModelMeans = readonly ModelMean[];
 /** One model's statistics at one hour. */
 export interface ModelMean extends ModelStats {
   readonly id: string;
+  /**
+   * The model's own snow level on the NWS scale (the height of the 0.5 C wet-bulb), as
+   * `EnsembleStats.snow_level_wet_bulb` is the blend's: its `snow_level` with every quantile
+   * raised by 275 m (901 ft), a quantile at `0` ...
+   */
+  readonly snowLevelWetBulb?: Quantiles;
 }
 
 /** One model's distribution of each variable. */
@@ -350,6 +411,12 @@ export interface ModelStats {
   readonly slr?: Quantiles;
   readonly snowfall?: Quantiles;
   readonly interpolated?: boolean;
+  /**
+   * The model's own snow level on the NWS scale (the height of the 0.5 C wet-bulb), as
+   * `EnsembleStats.snow_level_wet_bulb` is the blend's: its `snow_level` with every quantile
+   * raised by 275 m (901 ft), a quantile at `0` ...
+   */
+  readonly snowLevelWetBulb?: Quantiles;
 }
 
 /** One model's members at one hour. */
@@ -372,13 +439,22 @@ export interface MemberForecast {
   readonly snowfall?: number;
   readonly cumulativePrecipitation?: number;
   readonly cumulativeSnowfall?: number;
+  /**
+   * This member's snow level on the NWS scale (the height of the 0.5 C wet-bulb; see
+   * `EnsembleStats.snow_level_wet_bulb`): its `snow_level` raised by the same fixed 275 m (901
+   * ft), a level at `0` (snow to sea level) left at ...
+   */
+  readonly snowLevelWetBulb?: number;
 }
 
 /** The distribution of the members' running totals at a synoptic hour. */
 export interface MembersCumulative {
-  readonly precipitation?: Quantiles;
-  readonly snowfall?: Quantiles;
+  readonly precipitation?: MemberQuantiles;
+  readonly snowfall?: MemberQuantiles;
 }
+
+/** The character of falling snow, from its snow-to-liquid ratio (wet, dense, average, dry, very dry). */
+export type SnowCharacter = Open<'wet' | 'dense' | 'average' | 'dry' | 'very_dry'>;
 
 /** An icon name for a condition (day and night variants). */
 export type ConditionIcon = Open<
@@ -399,7 +475,9 @@ export type ConditionIcon = Open<
   | 'rain'
   | 'heavy_rain'
   | 'rain_snow_mix'
+  | 'light_snow'
   | 'snow'
+  | 'heavy_snow'
   | 'freezing_rain'
   | 'night_clear'
   | 'night_mostly_clear'
@@ -418,7 +496,9 @@ export type ConditionIcon = Open<
   | 'night_rain'
   | 'night_heavy_rain'
   | 'night_rain_snow_mix'
+  | 'night_light_snow'
   | 'night_snow'
+  | 'night_heavy_snow'
   | 'night_freezing_rain'
 >;
 
@@ -475,6 +555,41 @@ export interface DailyForecast {
   readonly stormOrientationDescription?: string;
   readonly astro: DailyAstro;
   readonly temperatureClimatology?: DayClimatology;
+  /**
+   * Present only on a part day -- the leading date of a run whose reference init falls after
+   * its local midnight (today, for most cycles) -- and absent on a whole day.
+   */
+  readonly coveredFrom?: string;
+  /**
+   * Present only on a day part of which is a measurement -- the leading date, when the radar
+   * (MRMS radar-only) measured hours between its local midnight and the reference init -- and
+   * absent otherwise.
+   */
+  readonly measuredPrecipitation?: MeasuredPrecipitation;
+  /** The day's snow character. */
+  readonly snowCharacter?: SnowCharacter;
+  /**
+   * The day's snow-to-liquid ratio, to one decimal: the ratio `snow_character` classifies on a
+   * day that is not `wet`.
+   */
+  readonly slr?: number;
+  /**
+   * The snow level over the day's wet hours -- the hours the day's `precipitation_type` reads
+   * (the hours that serve a precipitation type): the lowest and highest hourly
+   * `ensemble.snow_level.mean` and their ...
+   */
+  readonly snowLevelRange?: SnowLevelRange;
+  /** The day's snow level on the NWS scale -- the height of the 0.5 C wet-bulb. */
+  readonly snowLevelWetBulb?: Quantiles;
+  /**
+   * `Snow_level_range` on the NWS scale -- over the same wet hours, the lowest and highest
+   * hourly `ensemble.snow_level_wet_bulb.mean` and their precipitation-weighted mean (which is
+   * `snow_level_wet_bulb.mean`).
+   */
+  readonly snowLevelWetBulbRange?: SnowLevelRange;
+  readonly normal?: DayNormal;
+  readonly departure?: DayDeparture;
+  readonly percentile?: DayPercentile;
 }
 
 /** The day's wind summary. */
@@ -491,6 +606,8 @@ export interface PrecipDisplay {
   readonly kind: Open<'none' | 'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'>;
   readonly chance: number;
   readonly amount?: number;
+  /** The day's mean snowfall, the served `total_snowfall.mean`, in the request's snow units. */
+  readonly snowAmount?: number;
 }
 
 /** Sun and moon for a day. */
@@ -525,6 +642,11 @@ export interface SnowOutlook {
   readonly overnight4pm9am?: number;
   /** The distribution of each member's own window total. */
   readonly quantiles?: SnowOutlookQuantiles;
+  /**
+   * Sum of the hourly snowfall means over the first 72 h (the favorites' "next 3 days"); `null`
+   * when not covered.
+   */
+  readonly next72h: number | null;
 }
 
 /** Window-total distributions for the snow outlook windows. */
@@ -532,6 +654,8 @@ export interface SnowOutlookQuantiles {
   readonly next24h: Quantiles | null;
   readonly next48h: Quantiles | null;
   readonly next7d: Quantiles | null;
+  /** Built as the other windows are. */
+  readonly next72h: Quantiles | null;
 }
 
 /** A forecast at one extra elevation of a location. */
@@ -543,4 +667,36 @@ export interface ElevationForecast {
   readonly hourly?: readonly TimeSeriesPoint[];
   readonly daily?: readonly DailyForecast[];
   readonly snowOutlook?: SnowOutlook;
+  /**
+   * What the place is called, as `location.elevations[].display_name`; absent where the catalog
+   * has no name for it.
+   */
+  readonly displayName?: string;
+  /**
+   * A named spot's own nearby observation sensors, ranked around ITS point and elevation as the
+   * location's `nearest_sensors` are around the location's.
+   */
+  readonly nearestSensors?: readonly NearestSensor[];
+  /** -- rolling liquid totals at this elevation, as `forecast.precipitation_outlook`. */
+  readonly precipitationOutlook?: PrecipOutlook;
+  /**
+   * This elevation's members in columns, as `forecast.plume` -- present only with
+   * `members=plume`, instead of `hourly`, `daily`, `snow_outlook` and `precipitation_outlook`.
+   */
+  readonly plume?: MemberPlume;
+  /**
+   * The snow on the ground at this elevation, as the response's own `snow_on_ground`; absent
+   * where no snowpack column runs for it.
+   */
+  readonly snowOnGround?: SnowOnGround;
+}
+
+/**
+ * Present only on a day part of which is a measurement -- the leading date, when the radar
+ * (MRMS radar-only) measured hours between its local midnight and the reference init -- and
+ * absent otherwise.
+ */
+export interface MeasuredPrecipitation {
+  readonly amount: number;
+  readonly through: string;
 }

@@ -123,6 +123,7 @@ const CODE_CATEGORIES: ReadonlyMap<string, ErrorCategory> = new Map(
     INVALID_API_KEY: 'authentication',
     UNAUTHORIZED: 'authentication',
     PRO_REQUIRED: 'permission',
+    PLUS_REQUIRED: 'permission',
     LOCATION_NOT_FOUND: 'not_found',
     NOT_FOUND: 'not_found',
     BAD_REQUEST: 'invalid_request',

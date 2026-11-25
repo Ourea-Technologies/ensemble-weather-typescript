@@ -8,7 +8,7 @@
 import { MemoryCache, type CacheStore } from './cache.js';
 import { OureaError, UsageError } from './errors.js';
 import { camelize } from './internal/camel.js';
-import { encodeRfc3986, QueryBuilder } from './internal/query.js';
+import { encodeRfc3986, formatNumber, QueryBuilder } from './internal/query.js';
 import { isBrowser, readEnv, runtimeToken } from './internal/runtime.js';
 import {
   systemClock,
@@ -40,7 +40,16 @@ import type {
   NearbyLocationsResponse,
   NearbyPointResponse,
 } from './models/current.js';
+import type {
+  CompositionResponse,
+  ExploreItem,
+  ExploreResponse,
+  SeasonResponse,
+  SnowTrendResponse,
+} from './models/explore.js';
 import type { ForecastResponse, ProbabilityResult, WindowTotal } from './models/forecast.js';
+import type { AlertClass, AlertOutlineCollection, AvalancheZoneCollection } from './models/geo.js';
+import type { SnowpackPlumeResponse, SnowpackResponse } from './models/snowpack.js';
 import { PageRequest } from './paging.js';
 import {
   wireProbabilities,
@@ -128,7 +137,11 @@ export interface ForecastOptions extends RequestOptions {
   /** Per-model breakdowns (Pro). */
   readonly models?: boolean;
   /** Individual member values. */
-  readonly members?: boolean;
+  /**
+   * Individual member values: `true`, or `'plume'` for the plume view
+   * (columns in `forecast.plume`, ready to draw).
+   */
+  readonly members?: boolean | 'plume';
   /** Daily summaries. Default true. */
   readonly daily?: boolean;
   /** How many daily rows (1..15). Default: the tier's horizon. */
@@ -189,6 +202,97 @@ export interface SearchOptions extends RequestOptions {
   readonly type?: string;
   /** Max hits (1..100). Default 20. */
   readonly limit?: number;
+  /** `relevance` (default) or an explore metric; with a metric, each hit carries `explore`. */
+  readonly sort?: 'relevance' | ExploreMetric;
+  /** `desc` (default) or `asc`, for a metric sort. */
+  readonly order?: SortOrder;
+  /** Only hits within `radiusKm` of this point. */
+  readonly near?: Coordinates;
+  /** The radius around `near` in km. Default 100. */
+  readonly radiusKm?: number;
+  /** The units of `explore` values. Default: the client's. */
+  readonly units?: UnitSystem;
+}
+
+/** What `explore` ranks places by (also a search `sort`). */
+export type ExploreMetric =
+  | 'base_depth'
+  | 'new_snow_24h'
+  | 'snow_today'
+  | 'snow_5d'
+  | 'snow_10d'
+  | 'snow_14d'
+  | 'precip_today'
+  | 'precip_5d'
+  | 'precip_10d'
+  | 'precip_14d'
+  | 'season_precip'
+  | 'season_precip_pct_normal'
+  | 'season_snow';
+
+/** A ranking's direction. */
+export type SortOrder = 'desc' | 'asc';
+
+/** `explore` options. */
+export interface ExploreOptions extends RequestOptions {
+  /** `desc` (default, the most first) or `asc`. */
+  readonly order?: SortOrder;
+  /** Only places of this type. */
+  readonly type?: LocationType;
+  /** Only places in this state (code or name). */
+  readonly state?: string;
+  /** Only places within `radiusKm` of this point. */
+  readonly near?: Coordinates;
+  /** The radius around `near` in km (at most 1000). Default 100. */
+  readonly radiusKm?: number;
+  /** The lowest point elevation, in the response's height unit. */
+  readonly elevationMin?: number;
+  /** The highest point elevation, in the response's height unit. */
+  readonly elevationMax?: number;
+  /** `primary` (default, each place's own point) or `all` (each named elevation too). */
+  readonly points?: 'primary' | 'all';
+  /** Rows per page (1..100). Default 25. */
+  readonly limit?: number;
+  /** Start from this cursor. */
+  readonly cursor?: string;
+  readonly units?: UnitSystem;
+}
+
+/** `getSeason` options. */
+export interface SeasonOptions extends RequestOptions {
+  /** The water year (October to September), named by the year it ends in. Default: the current one. */
+  readonly waterYear?: number;
+  /** `['daily']` adds the day-by-day record. */
+  readonly include?: readonly 'daily'[];
+  readonly units?: UnitSystem;
+}
+
+/** `getSnowTrend` options. */
+export interface SnowTrendOptions extends RequestOptions {
+  /** One of the location's named elevations. Default: its primary. */
+  readonly elevation?: string;
+  readonly units?: UnitSystem;
+}
+
+/** Options of the routes whose only setting is the unit system. */
+export interface UnitsOptions extends RequestOptions {
+  readonly units?: UnitSystem;
+}
+
+/** A box in degrees, as RFC 7946's `bbox`. */
+export interface BoundingBox {
+  readonly west: number;
+  readonly south: number;
+  readonly east: number;
+  readonly north: number;
+}
+
+/** `getAlertOutlines` options. */
+export interface AlertOutlinesOptions extends RequestOptions {
+  /** Only these classes. Default: every class. */
+  readonly classes?: readonly AlertClass[];
+  /** Only alerts whose bounding box touches this box (features are served whole). */
+  readonly bbox?: BoundingBox;
 }
 
 /** Options for the state location lists. */
@@ -327,6 +431,52 @@ function locationPath(location: LocationId): string {
       throw new UsageError('A location needs both a state and a slug.');
   }
   return `/${encodeRfc3986(stateSegment(state))}/${encodeRfc3986(slug)}`;
+}
+
+function membersValue(members: boolean | 'plume' | undefined): boolean | 'plume' | undefined {
+  // Checked at run time too: JavaScript callers get no type check.
+  const raw: unknown = members;
+  if (typeof raw === 'string' && raw !== 'plume') {
+    throw new UsageError(`members takes true, false or 'plume', not ${raw}.`);
+  }
+  return members;
+}
+
+function sortOrder(order: SortOrder | undefined): SortOrder | undefined {
+  const raw: unknown = order;
+  if (raw !== undefined && raw !== 'asc' && raw !== 'desc') {
+    throw new UsageError(`order must be 'asc' or 'desc', not ${JSON.stringify(raw)}.`);
+  }
+  return order;
+}
+
+function degrees(name: string, value: number, bound: number): string {
+  if (typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > bound) {
+    throw new UsageError(
+      `${name} must be a number within +/-${String(bound)}, not ${String(value)}.`,
+    );
+  }
+  return formatNumber(value);
+}
+
+/** `lat,lon` with a literal comma (BEHAVIOR.md 3). */
+function nearValue(near: Coordinates | undefined): string | undefined {
+  if (near === undefined) return undefined;
+  return `${degrees('near.lat', near.lat, 90)},${degrees('near.lon', near.lon, 180)}`;
+}
+
+/** `west,south,east,north` with literal commas. */
+function bboxValue(box: BoundingBox | undefined): string | undefined {
+  if (box === undefined) return undefined;
+  if (box.west > box.east || box.south > box.north) {
+    throw new UsageError('a bbox needs west <= east and south <= north.');
+  }
+  return [
+    degrees('bbox.west', box.west, 180),
+    degrees('bbox.south', box.south, 90),
+    degrees('bbox.east', box.east, 180),
+    degrees('bbox.north', box.north, 90),
+  ].join(',');
 }
 
 function stateSegment(state: string): string {
@@ -486,14 +636,14 @@ export class Ourea {
       .set('max_hours', options.maxHours, 24)
       .set('include_past', options.includePast, false)
       .set('models', options.models, false)
-      .set('members', options.members, false)
-      .set('elevations', options.elevations === 'all' ? 'all' : options.elevations?.join(','))
+      .set('members', membersValue(options.members), false)
+      .sortedList('elevations', options.elevations === 'all' ? ['all'] : options.elevations)
       .set('daily', options.daily, true)
       .set('max_days', options.maxDays)
       .set('hourly', options.hourly, true)
       .set('run', runText(options.run))
-      .list('sources', options.sources)
-      .list('exclude_sources', options.excludeSources)
+      .sortedList('sources', options.sources)
+      .sortedList('exclude_sources', options.excludeSources)
       .set('nowcast', options.nowcast, true)
       .raw('prob', prob?.query)
       .raw('totals', totals?.query)
@@ -556,8 +706,8 @@ export class Ourea {
   #currentQuery(options: CurrentOptions): QueryBuilder {
     return new QueryBuilder()
       .set('units', options.units ?? this.#config.units, 'metric')
-      .list('sources', options.sources)
-      .list('exclude_sources', options.excludeSources)
+      .sortedList('sources', options.sources)
+      .sortedList('exclude_sources', options.excludeSources)
       .list('include', options.include);
   }
 
@@ -650,7 +800,12 @@ export class Ourea {
       .set('state', options.state)
       .set('county', options.county)
       .set('type', options.type)
-      .set('limit', options.limit, 20);
+      .set('limit', options.limit, 20)
+      .set('sort', options.sort, 'relevance')
+      .set('order', sortOrder(options.order), 'desc')
+      .raw('near', nearValue(options.near))
+      .set('radius_km', options.radiusKm, 100)
+      .set('units', options.units ?? this.#config.units, 'metric');
     return await this.#get('searchLocations', '/search/locations', query, true, options.signal);
   }
 
@@ -785,6 +940,122 @@ export class Ourea {
       (page) => page.runs,
       (page) => page.nextCursor,
       options.cursor,
+    );
+  }
+
+  /**
+   * Places ranked by a metric the server computes (operation `explore`).
+   * Await it for a page; `for await` it for every ranked place.
+   */
+  explore(
+    metric: ExploreMetric,
+    options: ExploreOptions = {},
+  ): PageRequest<ExploreResponse, ExploreItem> {
+    const points: unknown = options.points;
+    if (points !== undefined && points !== 'primary' && points !== 'all') {
+      throw new UsageError(`points must be 'primary' or 'all', not ${JSON.stringify(points)}.`);
+    }
+    const base = new QueryBuilder()
+      .set('metric', metric)
+      .set('order', sortOrder(options.order), 'desc')
+      .set('type', options.type)
+      .set('state', options.state === undefined ? undefined : stateSegment(options.state))
+      .raw('near', nearValue(options.near))
+      .set('radius_km', options.radiusKm, 100)
+      .set('elevation_min', options.elevationMin)
+      .set('elevation_max', options.elevationMax)
+      .set('points', options.points, 'primary')
+      .set('limit', options.limit, 25)
+      .set('units', options.units ?? this.#config.units, 'metric');
+    return new PageRequest(
+      (cursor) => {
+        const query = base.clone().set('cursor', cursor);
+        return this.#get<ExploreResponse>('explore', '/explore', query, false, options.signal);
+      },
+      (page) => page.items,
+      (page) => page.nextCursor,
+      options.cursor,
+    );
+  }
+
+  /** The blend's served models and members (operation `getComposition`; open route, sent without the key). */
+  async getComposition(options: RequestOptions = {}): Promise<Result<CompositionResponse>> {
+    return await this.#get(
+      'getComposition',
+      '/composition',
+      new QueryBuilder(),
+      true,
+      options.signal,
+    );
+  }
+
+  /** Observed season-to-date precipitation and snowfall (operation `getLocationSeason`). */
+  async getSeason(
+    location: LocationId,
+    options: SeasonOptions = {},
+  ): Promise<Result<SeasonResponse>> {
+    const query = new QueryBuilder()
+      .set('water_year', options.waterYear)
+      .sortedList('include', options.include)
+      .set('units', options.units ?? this.#config.units, 'metric');
+    const path = `/locations${locationPath(location)}/season`;
+    return await this.#get('getLocationSeason', path, query, false, options.signal);
+  }
+
+  /**
+   * Each recent run's daily snowfall, as a grid (operation
+   * `getLocationSnowTrend`; Plus or Pro, else `PLUS_REQUIRED`). With a Pro
+   * key the body also carries one grid per model.
+   */
+  async getSnowTrend(
+    location: LocationId,
+    options: SnowTrendOptions = {},
+  ): Promise<Result<SnowTrendResponse>> {
+    const query = new QueryBuilder()
+      .set('elevation', options.elevation)
+      .set('units', options.units ?? this.#config.units, 'metric');
+    const path = `/locations${locationPath(location)}/snow-trend`;
+    return await this.#get('getLocationSnowTrend', path, query, false, options.signal);
+  }
+
+  /** The snowpack forecast of a location's spots (operation `getLocationSnowpack`; beta). */
+  async getSnowpack(
+    location: LocationId,
+    options: UnitsOptions = {},
+  ): Promise<Result<SnowpackResponse>> {
+    const query = new QueryBuilder().set('units', options.units ?? this.#config.units, 'metric');
+    const path = `/locations${locationPath(location)}/snowpack`;
+    return await this.#get('getLocationSnowpack', path, query, false, options.signal);
+  }
+
+  /** The snow-depth plume of a location (operation `getLocationSnowpackPlume`; beta). */
+  async getSnowpackPlume(
+    location: LocationId,
+    options: UnitsOptions = {},
+  ): Promise<Result<SnowpackPlumeResponse>> {
+    const query = new QueryBuilder().set('units', options.units ?? this.#config.units, 'metric');
+    const path = `/locations${locationPath(location)}/snowpack/plume`;
+    return await this.#get('getLocationSnowpackPlume', path, query, false, options.signal);
+  }
+
+  /** The active winter and wind alerts' outlines, as GeoJSON (operation `getAlertOutlines`). */
+  async getAlertOutlines(
+    options: AlertOutlinesOptions = {},
+  ): Promise<Result<AlertOutlineCollection>> {
+    const query = new QueryBuilder()
+      .raw('bbox', bboxValue(options.bbox))
+      .sortedList('class', options.classes);
+    return await this.#get('getAlertOutlines', '/alerts/outlines', query, false, options.signal);
+  }
+
+  /** Every avalanche center's forecast zones with today's rating, as GeoJSON (operation `getAvalancheZones`). */
+  async getAvalancheZones(options: RequestOptions = {}): Promise<Result<AvalancheZoneCollection>> {
+    return await this.#get(
+      'getAvalancheZones',
+      '/avalanche/zones',
+      new QueryBuilder(),
+      false,
+      options.signal,
     );
   }
 

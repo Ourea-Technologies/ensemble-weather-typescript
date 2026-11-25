@@ -2,6 +2,7 @@
 // Location lists, search, the public catalog, runs and attribution.
 
 import type { LocationSummary, LocationType, ModelEntry, Open } from './common.js';
+import type { ExploreValue } from './explore.js';
 
 /** Observation networks the API knows today (snake_case). */
 export const STATION_NETWORKS = [
@@ -40,6 +41,8 @@ export const STATION_NETWORKS = [
   'madis',
   'nwac',
   'mt_mesonet',
+  'rain_gauge',
+  'surfrad',
 ] as const;
 
 /** A station's observation network (`snotel`, `raws`, ...). Open: see {@link Open}. */
@@ -76,6 +79,11 @@ export interface SearchHit {
   readonly type: LocationType;
   readonly timezone: string;
   readonly county: string;
+  /**
+   * With `sort=<metric>` only, the place's value as `GET /api/v1/explore` ranks it (its own
+   * point); `null` where it has none.
+   */
+  readonly explore?: ExploreValue | null;
 }
 
 /** Search results, best first. */
@@ -134,6 +142,8 @@ export interface CatalogElevation {
   readonly latOverride?: number;
   readonly lonOverride?: number;
   readonly isDefault: boolean;
+  /** What the place is called, for display. */
+  readonly displayName?: string;
 }
 
 /** A photo with its credit and licence. */
@@ -243,6 +253,8 @@ export interface CatalogStationDetail extends CatalogStation {
   readonly primaryLocation?: CatalogPrimaryLocation;
   readonly template?: CatalogTemplateSummary;
   readonly content?: readonly CatalogResolvedEntry[];
+  /** Whether search engines should index this station's page. */
+  readonly indexable: boolean;
 }
 
 /** The location a station primarily serves. */
@@ -298,7 +310,15 @@ export interface AttributionSource {
   readonly id: string;
   readonly name: string;
   readonly kind: Open<
-    'model' | 'peer' | 'observation' | 'alerts' | 'climatology' | 'terrain' | 'places' | 'basemap'
+    | 'model'
+    | 'peer'
+    | 'observation'
+    | 'alerts'
+    | 'avalanche_forecast'
+    | 'climatology'
+    | 'terrain'
+    | 'places'
+    | 'basemap'
   >;
   readonly provider: string;
 }

@@ -10,6 +10,7 @@ import type {
   ResponseAttribution,
 } from './common.js';
 import type { ConditionIcon, TimeSeriesPoint } from './forecast.js';
+import type { PassForecast, PlaceSummary } from './places.js';
 
 /** The conditions now, from the nowcast or the model. */
 export interface CurrentConditions {
@@ -28,6 +29,17 @@ export interface CurrentConditions {
   /** Where these values came from. */
   readonly source: Open<'nowcast' | 'model'>;
   readonly station?: CurrentStation;
+  /**
+   * The hour in progress's `measured`, the hour `condition` and `precipitation_probability` are
+   * read from: the radar's published accumulation for that clock hour so far is served above 0
+   * (above 0.00 mm and 0.000 in), so ...
+   */
+  readonly measured: boolean;
+  /**
+   * Cloud cover, percent (0-100), the mean of the hour in progress's `ensemble.cloud_cover`:
+   * the hour `condition` is read from, so the number and the label describe one hour.
+   */
+  readonly cloudCover?: number;
 }
 
 /** The station a nowcast reading came from. */
@@ -36,6 +48,8 @@ export interface CurrentStation {
   readonly stationId: string;
   readonly name: string;
   readonly observationTime: string;
+  /** `True` when the station's reading was calm (0 wind speed; a METAR's `00000KT`). */
+  readonly calm: boolean;
 }
 
 /** One sensor's latest observation. Every reading is optional. */
@@ -65,6 +79,16 @@ export interface SensorObservation {
   readonly snowfall?: number;
   readonly solarRadiation?: number;
   readonly pavementCondition?: string;
+  /**
+   * Straight-line surface distance from the location to the sensor, in km (at most 25), as
+   * `nearest_sensors[].distance_km`.
+   */
+  readonly distanceKm: number;
+  /**
+   * The sensor's registry elevation minus the location's, in the caller's length units (m
+   * metric, ft imperial), as `nearest_sensors[].elevation_diff`.
+   */
+  readonly elevationDiff?: number;
 }
 
 /** Current conditions, sensors and alerts for a location or point. */
@@ -88,6 +112,13 @@ export interface CurrentResponse {
   readonly nowcastUnavailable?: readonly Open<
     'observation' | 'radar' | 'cloud' | 'nearest_sensors'
   >[];
+  /**
+   * The place summary, written by the server from served values only, so every client shows the
+   * same words.
+   */
+  readonly summary?: PlaceSummary;
+  /** The mountain pass forecast at the pass's own point and elevation. */
+  readonly pass?: PassForecast;
 }
 
 /** Active alerts for a location or point. */

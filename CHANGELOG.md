@@ -6,9 +6,56 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
-The v1 contract as deployed (ensemble-weather-spec 8b85fea, KAN-1561).
+## [0.1.0] - 2026-11-24
+
+The first release on npm. Targets the v1 contract at ensemble-weather-spec
+b922bdd (the server's public spec at 256cd770, byte for byte).
+
+### Added since the v1 contract of 2026-10-27
+
+- `explore(metric, options)`: places ranked by a metric (`ExploreMetric`),
+  with `order`, `type`, `state`, `near`, `radiusKm`, elevation bounds,
+  `points` and cursor paging (await a page, or `for await` every place).
+- `getSeason`, `getSnowTrend` (Plus or Pro), `getSnowpack` and
+  `getSnowpackPlume` (beta), `getComposition` (an open route, sent without
+  the key), and the GeoJSON routes `getAlertOutlines` and
+  `getAvalancheZones`.
+- `searchLocations` takes `sort`, `order`, `near`, `radiusKm` and `units`; a
+  hit carries `explore` with a metric sort.
+- `members: 'plume'` on the forecast routes: the plume view in
+  `forecast.plume` (`MemberPlume`); `membersView` may be `pool`.
+- Every new response field of the contract, among them
+  `ForecastResponse.location` as `ForecastLocation` (`elevation`,
+  `elevations`), `snowOnGround`, `avalanche`; `snowLevelWetBulb`;
+  `TimeSeriesPoint.measured`, `snowCharacter`, `membersSpread`,
+  `members6h`, `precipitationByType`; the daily normals, departures and
+  percentiles; `CurrentConditions.measured` and `cloudCover`;
+  `CurrentResponse.summary` and `pass`; `SensorObservation.distanceKm` and
+  `elevationDiff`; the NWS fields on `ActiveAlert`; `WindowTotal.method`.
+  The compile-time drift checks cover all of them (137 models).
+- `PLUS_REQUIRED` is a `permission` error; `examples/snow-report.ts`.
 
 ### Changed
+
+- `LocationElevation` is `ElevationSummary`, the spec's name, and has
+  `displayName`. `MembersCumulative` holds `MemberQuantiles`.
+- Comma lists (`sources`, `excludeSources`, `elevations`, `include`,
+  `capability`, `network`, ...) are sent sorted, each item encoded and the
+  commas literal (`sources=asos,snotel`, not `%2C`): the server's canonical
+  spelling and the edge-cache key every SDK shares (BEHAVIOR.md 3.1).
+- `searchLocations` sends the client's `units` (the route takes it now).
+
+### Fixed
+
+- `scripts/live-contract.mjs` looked for the search hit `key`
+  `or/mt-hood-meadows`; the live key is `or-mt-hood-meadows`, so it now
+  matches on state and slug.
+
+### Changes from the draft of 2026-10-26 (never published)
+
+The v1 contract as deployed (ensemble-weather-spec 8b85fea, KAN-1561).
+
+#### Changed
 
 - The coordinate methods follow the operation ids: `getCurrentAt` is
   `getPointCurrent`, `getAlertsAt` is `getPointAlerts` and `getNearbyAt` is
@@ -39,11 +86,11 @@ The v1 contract as deployed (ensemble-weather-spec 8b85fea, KAN-1561).
   and `param`, and `requestId` comes from the body's `request_id` when present.
   `OUTSIDE_COVERAGE` is a 404. `Retry-After` is honoured on 504 as well as 429 and 503.
 
-### Added
+#### Added
 
 - Forecast option `include` (`skin_temperature`, `mslp`).
 
-### Removed
+#### Removed
 
 - `getStormReports`, `getStormReport`, `StormReportsResponse` and `StormReportCard`
   (not in the public API).
@@ -52,9 +99,9 @@ The v1 contract as deployed (ensemble-weather-spec 8b85fea, KAN-1561).
   `default` (`ElevationTimeSeriesPoint`).
 - Catalog detail `ads` (and its ad-slot models) and `include: ['ads']`.
 
-## [0.1.0] - 2026-10-26
+### In the draft of 2026-10-26
 
-### Added
+#### Added
 
 - `Ourea`, the client for API v1 (contract 1.0.0): every operation except
   `getMapsToken`, each taking `{ signal }`.

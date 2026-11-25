@@ -29,7 +29,7 @@ function assert(condition, message) {
 await check('search finds the quickstart location', async () => {
   const hits = await ourea.searchLocations('mt hood meadows');
   assert(
-    hits.items.some((h) => h.key === 'or/mt-hood-meadows'),
+    hits.items.some((h) => h.state === 'or' && h.slug === 'mt-hood-meadows'),
     'or/mt-hood-meadows not in the hits',
   );
 });
@@ -62,6 +62,56 @@ await check('out-of-coverage maps to OutsideCoverageError', async () => {
     (e) => e,
   );
   assert(error?.category === 'outside_coverage', `category ${String(error?.category)}`);
+});
+
+await check('members: plume returns the plume columns', async () => {
+  const f = await ourea.getForecast('or/mt-hood-meadows', { members: 'plume', maxHours: 12 });
+  assert(f.forecast.plume !== undefined, 'forecast.plume');
+});
+await check('explore ranks and pages', async () => {
+  const page = await ourea.explore('snow_5d', { limit: 3 });
+  assert(page.items[0]?.rank === 1, 'rank 1 first');
+  let n = 0;
+  for await (const item of ourea.explore('snow_5d', { state: 'wa', limit: 50 })) {
+    assert(item.rank > n, 'ranks ascend');
+    n = item.rank;
+  }
+});
+await check('search sorted by a metric near a point', async () => {
+  const hits = await ourea.searchLocations('hood', {
+    sort: 'snow_5d',
+    near: { lat: 45.33, lon: -121.66 },
+  });
+  assert(
+    hits.items.some((h) => h.explore !== undefined && h.explore !== null),
+    'a hit with explore',
+  );
+});
+await check('composition, season, snowpack and its plume', async () => {
+  assert((await ourea.getComposition()).totalMembers > 0, 'members');
+  assert((await ourea.getSeason('or/mt-hood-meadows')).waterYear >= 2027, 'water year');
+  assert((await ourea.getSnowpack('or/mt-hood-meadows')).beta, 'snowpack beta');
+  assert((await ourea.getSnowpackPlume('or/mt-hood-meadows')).beta, 'plume beta');
+});
+await check('the snow trend (Plus or Pro; PLUS_REQUIRED otherwise)', async () => {
+  const result = await ourea.getSnowTrend('or/mt-hood-meadows').then(
+    (r) => r,
+    (e) => e,
+  );
+  assert(
+    Array.isArray(result.grids) || result?.code === 'PLUS_REQUIRED',
+    `grids or PLUS_REQUIRED, got ${String(result?.code)}`,
+  );
+});
+await check('GeoJSON: alert outlines and avalanche zones', async () => {
+  const outlines = await ourea.getAlertOutlines({ classes: ['winter'] });
+  assert(outlines.type === 'FeatureCollection', 'outlines collection');
+  const zones = await ourea.getAvalancheZones();
+  assert(zones.features.length > 0, 'zones');
+});
+await check('a mountain pass carries its pass forecast', async () => {
+  const current = await ourea.getCurrent('wa/snoqualmie-pass-i-90');
+  assert(current.pass?.chances.pSnowGe1in.members !== undefined, 'pass chances');
 });
 
 if (failures.length > 0) process.exit(1);
