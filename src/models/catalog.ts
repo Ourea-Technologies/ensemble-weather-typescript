@@ -62,7 +62,8 @@ export type TemplateVariant = Open<
 export interface LocationsResponse {
   readonly state: string;
   readonly count: number;
-  readonly locations: readonly LocationSummary[];
+  /** (JSON `locations`) */
+  readonly items: readonly LocationSummary[];
   /** Pass back as `cursor` for the next page; `null` on the last page. */
   readonly nextCursor: string | null;
 }
@@ -138,7 +139,8 @@ export interface CatalogLocationDetail extends CatalogLocation {
 /** A named elevation of a catalog location. */
 export interface CatalogElevation {
   readonly label: string;
-  readonly elevationM: number;
+  /** (JSON `elevation_m`) */
+  readonly heightM: number;
   readonly latOverride?: number;
   readonly lonOverride?: number;
   readonly isDefault: boolean;
@@ -170,7 +172,8 @@ export interface CatalogNearbyStation {
   readonly slug: string;
   readonly name: string;
   readonly network: StationNetwork;
-  readonly stationStatus: StationStatus;
+  /** (JSON `station_status`) */
+  readonly status: StationStatus;
   readonly distanceKm?: number;
   readonly elevationDiffM?: number;
   readonly isPrimary: boolean;
@@ -180,7 +183,8 @@ export interface CatalogNearbyStation {
 export interface CatalogTemplateSummary {
   readonly id: string;
   readonly locationType: LocationType | null;
-  readonly templateVariant: TemplateVariant | null;
+  /** (JSON `template_variant`) */
+  readonly variant: TemplateVariant | null;
   readonly spec: readonly CmsTemplateSection[];
 }
 
@@ -201,7 +205,8 @@ export interface CatalogResolvedEntry {
   readonly body: Readonly<Record<string, unknown>>;
   readonly slot: string;
   readonly displayOrder: number;
-  readonly resolvedLocale: string;
+  /** (JSON `resolved_locale`) */
+  readonly locale: string;
   readonly updatedAt: string;
 }
 
@@ -219,18 +224,21 @@ export interface CatalogStation {
   readonly country?: string;
   readonly aliases?: readonly string[];
   readonly network?: StationNetwork;
-  readonly sourceStationId?: string;
+  /** (JSON `source_station_id`) */
+  readonly sourceId?: string;
   readonly elevationMslM?: number;
   readonly sensorHeightAglM?: number;
   readonly sensorCapabilities?: readonly string[];
-  readonly stationStatus?: StationStatus;
+  /** (JSON `station_status`) */
+  readonly status?: StationStatus;
   readonly lastReportAt?: string;
   /** Free-form, passed through as the server sent it. */
   readonly lastReportSummary?: unknown;
   readonly installDate?: string;
   readonly decommissionDate?: string;
   readonly updateFrequencyMinutes?: number;
-  readonly stationUrl?: string;
+  /** (JSON `station_url`) */
+  readonly url?: string;
   readonly dataUrl?: string;
   readonly descriptionShort?: string;
   readonly descriptionLong?: string;
@@ -270,7 +278,8 @@ export interface CatalogPrimaryLocation {
 /** Model runs: the one served and the ones available. */
 export interface RunsResponse {
   readonly served: ServedRun | null;
-  readonly runs: readonly RunInfo[];
+  /** (JSON `runs`) */
+  readonly items: readonly RunInfo[];
   readonly count: number;
   /** Pass back as `cursor` for the next page; `null` on the last page. */
   readonly nextCursor: string | null;

@@ -9,7 +9,7 @@ const forecast = await ourea.getForecast('or/mt-hood-meadows', {
 });
 
 for (const total of forecast.windowTotals ?? []) {
-  const window = `${String(total.windowStartHours)}-${String(total.windowEndHours)} h`;
+  const window = `${String(total.startHours)}-${String(total.endHours)} h`;
   const r = total.quantiles === null ? undefined : range(total.quantiles, 'p10', 'p90');
   console.log(
     r === undefined

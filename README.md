@@ -38,14 +38,14 @@ const forecast = await ourea.getForecast('or/mt-hood-meadows', {
 
 const degrees = forecast.units === 'imperial' ? '°F' : forecast.units === 'kelvin' ? 'K' : '°C';
 console.log(`${forecast.location.name}: temperature over the next 24 h (p10 to p90)`);
-for (const hour of forecast.forecast.timeseries?.slice(0, 25) ?? []) {
+for (const hour of forecast.series.timeseries?.slice(0, 25) ?? []) {
   const t = range(hour.ensemble.temperature, 'p10', 'p90');
-  if (t) console.log(`  ${hour.validTime}  ${String(t.low)} to ${String(t.high)} ${degrees}`);
+  if (t) console.log(`  ${hour.validAt}  ${String(t.low)} to ${String(t.high)} ${degrees}`);
 }
 
 const snow = forecast.probabilities?.[0];
-if (snow?.probability != null) {
-  const percent = Math.round(snow.probability * 100);
+if (snow?.value != null) {
+  const percent = Math.round(snow.value * 100);
   console.log(
     `Chance of 6 in (15 cm) or more of snow in the next 24 h: ${String(percent)}% (${String(snow.members)} members)`,
   );
@@ -99,14 +99,14 @@ const f = await ourea.getForecast('or/mt-hood-meadows', {
   totals: [windowTotal('snowfall', { hours: 72 })],
 });
 for (const p of f.probabilities ?? []) {
-  console.log(p.variable, p.op, p.threshold, p.windowEndHours, p.probability, p.members);
+  console.log(p.variable, p.op, p.threshold, p.windowEndHours, p.value, p.members);
 }
 
 // A storm total: the distribution of each member's own total over the window.
 const storm = f.windowTotals?.[0]?.quantiles; // null (see nullReason) when the window is not covered
 
 // Quantiles: the served ranges, by name.
-const hour = f.forecast.timeseries?.[0];
+const hour = f.series.timeseries?.[0];
 const spread = hour && range(hour.ensemble.temperature, 'p10', 'p90');
 ```
 
@@ -123,6 +123,63 @@ carries its `nullReason` (`window_not_covered`, `too_few_members`,
 `stddev`, and the clockwise `sector50` / `sector90` arcs, whose `to` may be
 less than `from`). More at
 [docs.oureawx.com/concepts/probabilities](https://docs.oureawx.com/concepts/probabilities).
+
+## Names that differ from the API's JSON
+
+Fields arrive in camelCase (`elevation_m` is `elevationM`). A few JSON fields
+would read twice (`forecast.forecast`, `current.current`,
+`probability.probability`), so the SDK names them differently: one table for
+every Ourea SDK (ensemble-weather-spec BEHAVIOR.md 3.0). Every other field is
+its JSON name in camelCase.
+
+| Type                         | JSON field                                   | SDK field                      |
+| ---------------------------- | -------------------------------------------- | ------------------------------ |
+| `ForecastResponse`           | `forecast`                                   | `series`                       |
+| `ForecastResponse`           | `elevation_forecasts`                        | `elevations`                   |
+| `CurrentResponse`            | `current`                                    | `now`                          |
+| `CurrentConditions`          | `condition`                                  | `code`                         |
+| `CurrentConditions`          | `condition_text`                             | `text`                         |
+| `CurrentConditions`          | `condition_icon`                             | `icon`                         |
+| `CurrentStation`             | `station_id`                                 | `id`                           |
+| `ProbabilityResult`          | `probability`                                | `value`                        |
+| `ProbabilityThresholds`      | `daily_precipitation_probability`            | `dailyPrecipitation`           |
+| `ProbabilityThresholds`      | `daily_precipitation_occurrence_probability` | `dailyPrecipitationOccurrence` |
+| `ProbabilityThresholds`      | `daily_snow_probability`                     | `dailySnow`                    |
+| `WindowTotal`                | `window_start_hours`                         | `startHours`                   |
+| `WindowTotal`                | `window_end_hours`                           | `endHours`                     |
+| `TimeSeriesPoint`            | `valid_time`                                 | `validAt`                      |
+| `TimeSeriesPoint`            | `lead_time_hours`                            | `leadHours`                    |
+| `ModelMembers`               | `members`                                    | `items`                        |
+| `MemberForecast`             | `member_id`                                  | `id`                           |
+| `MemberPlume`                | `members`                                    | `pool`                         |
+| `PrecipType`                 | `type`                                       | `kind`                         |
+| `FreezingLevelHeight`        | `above_freezing_layer_aloft`                 | `warmLayerAloft`               |
+| `ModelRunInfo`               | `models`                                     | `contributors`                 |
+| `AlertsResponse`             | `alerts`                                     | `items`                        |
+| `AlertsResponse`             | `alert_count`                                | `count`                        |
+| `LocationsResponse`          | `locations`                                  | `items`                        |
+| `NearbyLocationsResponse`    | `location`                                   | `origin`                       |
+| `NearbyLocationsResponse`    | `locations`                                  | `items`                        |
+| `NearbyPointResponse`        | `locations`                                  | `items`                        |
+| `RunsResponse`               | `runs`                                       | `items`                        |
+| `ElevationForecast`          | `elevation`                                  | `height`                       |
+| `ElevationSummary`           | `elevation`                                  | `height`                       |
+| `SnowTrendResponseElevation` | `elevation`                                  | `height`                       |
+| `CatalogElevation`           | `elevation_m`                                | `heightM`                      |
+| `CatalogStation`             | `source_station_id`                          | `sourceId`                     |
+| `CatalogStation`             | `station_status`                             | `status`                       |
+| `CatalogStation`             | `station_url`                                | `url`                          |
+| `CatalogNearbyStation`       | `station_status`                             | `status`                       |
+| `CatalogTemplateSummary`     | `template_variant`                           | `variant`                      |
+| `CatalogResolvedEntry`       | `resolved_locale`                            | `locale`                       |
+| `SensorObservation`          | `observation_time`                           | `observedAt`                   |
+| `PassHour`                   | `snow_level_above_pass`                      | `snowLevelMargin`              |
+| `PassStatusSegment`          | `status`                                     | `state`                        |
+| `PassStatusSegment`          | `status_text`                                | `text`                         |
+| `AvalancheForecast`          | `forecast_url`                               | `url`                          |
+| `SeasonTotal`                | `total`                                      | `amount`                       |
+| `SnowTrendDay`               | `snow`                                       | `amount`                       |
+| `SnowpackAspect`             | `aspect`                                     | `facing`                       |
 
 ## Every route
 

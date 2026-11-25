@@ -20,7 +20,7 @@ console.log(
 if (season.precipitation !== null) {
   const p = season.precipitation;
   const normal = p.percentOfNormal === null ? '' : `, ${String(p.percentOfNormal)}% of normal`;
-  console.log(`  precipitation ${String(p.total)} ${p.unit}${normal}`);
+  console.log(`  precipitation ${String(p.amount)} ${p.unit}${normal}`);
 }
 
 try {
@@ -30,7 +30,7 @@ try {
   if (grid !== undefined && newest !== undefined) {
     console.log(`\nSnow trend (${grid.source}), newest run ${newest.initializedAt}:`);
     for (const day of newest.days)
-      if (day !== null) console.log(`  ${day.date}: ${String(day.snow)}`);
+      if (day !== null) console.log(`  ${day.date}: ${String(day.amount)}`);
   }
 } catch (error) {
   if (!(error instanceof PermissionError)) throw error;

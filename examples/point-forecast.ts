@@ -16,8 +16,8 @@ const forecast = await ourea.getPointForecast(
 console.log(
   `Resolved to ${String(forecast.point?.lat)}, ${String(forecast.point?.lon)} at ${String(forecast.point?.elevation)} m`,
 );
-for (const hour of forecast.forecast.timeseries?.slice(0, 6) ?? []) {
+for (const hour of forecast.series.timeseries?.slice(0, 6) ?? []) {
   console.log(
-    `  ${hour.validTime}  median ${String(median(hour.ensemble.temperature))} ${forecast.units}  ${hour.conditionText}`,
+    `  ${hour.validAt}  median ${String(median(hour.ensemble.temperature))} ${forecast.units}  ${hour.conditionText}`,
   );
 }

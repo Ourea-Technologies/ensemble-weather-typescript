@@ -17,9 +17,12 @@ export interface CurrentConditions {
   readonly time: string;
   readonly temperature: number;
   readonly feelsLike?: number;
-  readonly condition: string;
-  readonly conditionText: string;
-  readonly conditionIcon: ConditionIcon;
+  /** (JSON `condition`) */
+  readonly code: string;
+  /** (JSON `condition_text`) */
+  readonly text: string;
+  /** (JSON `condition_icon`) */
+  readonly icon: ConditionIcon;
   readonly windSpeed: number;
   readonly windGust?: number;
   readonly windDirection: number;
@@ -44,8 +47,8 @@ export interface CurrentConditions {
 
 /** The station a nowcast reading came from. */
 export interface CurrentStation {
-  /** The station's id in its network. */
-  readonly stationId: string;
+  /** (JSON `station_id`) The station's id in its network. */
+  readonly id: string;
   readonly name: string;
   readonly observationTime: string;
   /** `True` when the station's reading was calm (0 wind speed; a METAR's `00000KT`). */
@@ -57,7 +60,8 @@ export interface SensorObservation {
   readonly stationId: string;
   readonly name: string;
   readonly source: string;
-  readonly observationTime: string;
+  /** (JSON `observation_time`) */
+  readonly observedAt: string;
   readonly temperature?: number;
   readonly dewpoint?: number;
   readonly relativeHumidity?: number;
@@ -98,8 +102,8 @@ export interface CurrentResponse {
   readonly alertsAsOf: string;
   readonly sensorCount: number;
   readonly sensors: readonly SensorObservation[];
-  /** `null` when nothing current is available: never a substituted default. */
-  readonly current: CurrentConditions | null;
+  /** (JSON `current`) `null` when nothing current is available: never a substituted default. */
+  readonly now: CurrentConditions | null;
   readonly asOf: string;
   readonly modelRunInitializedAt: string | null;
   /**
@@ -124,9 +128,11 @@ export interface CurrentResponse {
 /** Active alerts for a location or point. */
 export interface AlertsResponse {
   readonly location: LocationRef;
-  readonly alertCount: number;
+  /** (JSON `alert_count`) */
+  readonly count: number;
   readonly asOf: string;
-  readonly alerts: readonly ActiveAlert[];
+  /** (JSON `alerts`) */
+  readonly items: readonly ActiveAlert[];
   readonly attribution: ResponseAttribution;
 }
 
@@ -137,10 +143,12 @@ export interface NearbyLocation extends LocationSummary {
 
 /** Locations near a named location. */
 export interface NearbyLocationsResponse {
-  readonly location: LocationSummary;
+  /** (JSON `location`) */
+  readonly origin: LocationSummary;
   readonly radiusKm: number;
   readonly count: number;
-  readonly locations: readonly NearbyLocation[];
+  /** (JSON `locations`) */
+  readonly items: readonly NearbyLocation[];
 }
 
 /** Locations near a point. */
@@ -149,5 +157,6 @@ export interface NearbyPointResponse {
   readonly lon: number;
   readonly radiusKm: number;
   readonly count: number;
-  readonly locations: readonly NearbyLocation[];
+  /** (JSON `locations`) */
+  readonly items: readonly NearbyLocation[];
 }

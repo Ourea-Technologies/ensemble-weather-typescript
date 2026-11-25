@@ -13,6 +13,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from 'yaml';
+import { loadRenames } from './renames-table.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const specPath = join(root, 'spec', 'openapi', 'v1', 'openapi.yaml');
@@ -20,6 +21,8 @@ const outPath = join(root, 'test', 'generated', 'spec-checks.ts');
 const spec = parse(readFileSync(specPath, 'utf8'));
 const schemas = spec.components.schemas;
 const specVersion = readFileSync(join(root, 'spec', 'VERSION'), 'utf8').trim();
+// BEHAVIOR.md 3.0: the stuttering wire fields the SDK names differently.
+const renames = loadRenames(root, schemas);
 
 // Response schemas the SDK models (every operation in scope; not getMapsToken).
 const ROOTS = [
@@ -173,7 +176,14 @@ const lines = [
   'export const models = {',
 ];
 const asserts = [];
-for (const [label, type, { properties, required }] of models) {
+for (const [label, type, flat] of models) {
+  // Each wire field under its SDK name (BEHAVIOR.md 3.0).
+  const rename = renames.get(label) ?? new Map();
+  const sdk = (k) => rename.get(k) ?? k;
+  const properties = Object.fromEntries(
+    Object.entries(flat.properties).map(([k, v]) => [sdk(k), v]),
+  );
+  const required = new Set([...flat.required].map(sdk));
   const keys = Object.keys(properties);
   lines.push(`  // ${label}`);
   lines.push(`  ${type.replace(/\W/g, '_')}: {`);

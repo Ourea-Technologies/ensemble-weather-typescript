@@ -106,8 +106,8 @@ export interface ElevationSummary {
   readonly name: string;
   /** What the place is called, for display ("K-1 Lodge"). */
   readonly displayName?: string;
-  /** In the request's length units (m, ft), to 0.1. */
-  readonly elevation: number;
+  /** (JSON `elevation`) In the request's length units (m, ft), to 0.1. */
+  readonly height: number;
   readonly default?: boolean;
 }
 

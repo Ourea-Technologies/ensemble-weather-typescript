@@ -139,8 +139,8 @@ export interface SeasonResponse {
 
 /** The `SeasonTotal` shape. */
 export interface SeasonTotal {
-  /** Sum over the covered days, in `unit`. */
-  readonly total: number;
+  /** (JSON `total`) Sum over the covered days, in `unit`. */
+  readonly amount: number;
   readonly unit: Open<'mm' | 'cm' | 'in'>;
   /**
    * `mrms_multisensor`: the gridded analysis at the location; `station_gauge`: the location is
@@ -214,8 +214,8 @@ export interface SnowTrendResponseElevation {
    * name.
    */
   readonly displayName?: string;
-  /** Its elevation, in m (metric) or ft (imperial). */
-  readonly elevation: number;
+  /** (JSON `elevation`) Its elevation, in m (metric) or ft (imperial). */
+  readonly height: number;
 }
 
 /** The `SnowTrendGrid` shape. */
@@ -244,8 +244,8 @@ export interface SnowTrendRun {
 export interface SnowTrendDay {
   /** The `dates` entry this day is for. */
   readonly date: string;
-  /** The day's snowfall in mm (metric) or inches (imperial), at the served amount precision. */
-  readonly snow: number | null;
+  /** (JSON `snow`) The day's snowfall in mm (metric) or inches (imperial), at the served amount precision. */
+  readonly amount: number | null;
   /** The run covers only part of this local day. */
   readonly partial: boolean;
   /** The range's low end. */

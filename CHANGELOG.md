@@ -9,7 +9,7 @@ All notable changes to this package are documented here. The format follows
 ## [0.1.0] - 2026-11-24
 
 The first release on npm. Targets the v1 contract at ensemble-weather-spec
-b922bdd (the server's public spec at 256cd770, byte for byte).
+40c2ae8 (the server's public spec at 256cd770, byte for byte).
 
 ### Added since the v1 contract of 2026-10-27
 
@@ -37,6 +37,19 @@ b922bdd (the server's public spec at 256cd770, byte for byte).
 
 ### Changed
 
+- Stuttering JSON fields have SDK names (BEHAVIOR.md 3.0, one table for every
+  Ourea SDK, applied by a decoder table generated from the spec,
+  `src/internal/renames.ts`): `ForecastResponse.forecast` is `series` and
+  `elevationForecasts` is `elevations`; `CurrentResponse.current` is `now`;
+  `ProbabilityResult.probability` is `value`; the list responses' rows are
+  `items` and their counts `count` (`alerts`, `alertCount`, `locations`,
+  `runs`; nearby's `location` is `origin`); an hour's `validTime` and
+  `leadTimeHours` are `validAt` and `leadHours`; `WindowTotal.windowStartHours`
+  and `windowEndHours` are `startHours` and `endHours`; `CurrentConditions`
+  `condition`, `conditionText`, `conditionIcon` are `code`, `text`, `icon`; an
+  elevation's `elevation` is `height`; and the rest of the README's "Names
+  that differ from the API's JSON". Each renamed field's doc names its JSON
+  field.
 - `LocationElevation` is `ElevationSummary`, the spec's name, and has
   `displayName`. `MembersCumulative` holds `MemberQuantiles`.
 - Comma lists (`sources`, `excludeSources`, `elevations`, `include`,

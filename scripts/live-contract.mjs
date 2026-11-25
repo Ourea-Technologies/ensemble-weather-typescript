@@ -66,7 +66,7 @@ await check('out-of-coverage maps to OutsideCoverageError', async () => {
 
 await check('members: plume returns the plume columns', async () => {
   const f = await ourea.getForecast('or/mt-hood-meadows', { members: 'plume', maxHours: 12 });
-  assert(f.forecast.plume !== undefined, 'forecast.plume');
+  assert(f.series.plume !== undefined, 'forecast.plume');
 });
 await check('explore ranks and pages', async () => {
   const page = await ourea.explore('snow_5d', { limit: 3 });
@@ -112,6 +112,25 @@ await check('GeoJSON: alert outlines and avalanche zones', async () => {
 await check('a mountain pass carries its pass forecast', async () => {
   const current = await ourea.getCurrent('wa/snoqualmie-pass-i-90');
   assert(current.pass?.chances.pSnowGe1in.members !== undefined, 'pass chances');
+});
+
+await check('renamed fields decode under their SDK names (BEHAVIOR.md 3.0)', async () => {
+  const f = await ourea.getForecast('or/mt-hood-meadows', { elevations: 'all' });
+  assert(typeof f.series.timeseries?.[0]?.validAt === 'string', 'series.timeseries[0].validAt');
+  assert(typeof f.elevations?.[0]?.height === 'number', 'elevations[0].height');
+  assert(f.modelRun.contributors.length > 0, 'modelRun.contributors');
+  const current = await ourea.getCurrent('wa/snoqualmie-pass-i-90');
+  assert(typeof current.now?.code === 'string', 'now.code');
+  assert(typeof current.sensors[0]?.observedAt === 'string', 'sensors[0].observedAt');
+  const alerts = await ourea.getAlerts('or/mt-hood-meadows');
+  assert(alerts.count === alerts.items.length, 'alerts count and items');
+  const nearby = await ourea.getNearby('or/mt-hood-meadows');
+  assert(
+    nearby.origin.slug === 'mt-hood-meadows' && nearby.items.length > 0,
+    'nearby origin/items',
+  );
+  const runs = await ourea.getRuns({ limit: 2 });
+  assert(runs.items.length > 0, 'runs items');
 });
 
 if (failures.length > 0) process.exit(1);

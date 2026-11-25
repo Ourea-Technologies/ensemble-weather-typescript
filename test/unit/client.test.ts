@@ -248,7 +248,7 @@ describe('probabilities and totals', () => {
       prob: [atLeast('snowfall', inches(12), { window: 240 }), atLeast('snowfall', inches(6))],
       totals: [],
     });
-    expect(f.probabilities?.map((p) => p.probability)).toEqual([null, 0.42]);
+    expect(f.probabilities?.map((p) => p.value)).toEqual([null, 0.42]);
   });
 
   it('maps results by their echoed term, not by any other field', async () => {
@@ -270,7 +270,7 @@ describe('probabilities and totals', () => {
       units: 'imperial',
     });
     const f = await h.client.getForecast('or/x', { prob: [atLeast('snowfall', inches(6))] });
-    expect(f.probabilities?.[0]?.probability).toBe(0.5);
+    expect(f.probabilities?.[0]?.value).toBe(0.5);
     expect(f.probabilities?.[0]?.nullReason).toBeNull();
   });
 

@@ -7,7 +7,8 @@
 
 import { MemoryCache, type CacheStore } from './cache.js';
 import { OureaError, UsageError } from './errors.js';
-import { camelize } from './internal/camel.js';
+import { applyRenames, camelize } from './internal/camel.js';
+import { RENAME_ROOTS } from './internal/renames.js';
 import { encodeRfc3986, formatNumber, QueryBuilder } from './internal/query.js';
 import { isBrowser, readEnv, runtimeToken } from './internal/runtime.js';
 import {
@@ -609,7 +610,8 @@ export class Ourea {
       signal,
     });
     this.#rateLimit = raw.meta.rateLimit;
-    const data = camelize(raw.data);
+    // eslint-disable-next-line security/detect-object-injection -- operation is this SDK's own operationId
+    const data = applyRenames(camelize(raw.data), RENAME_ROOTS[operation]);
     if (typeof data !== 'object' || data === null) {
       throw new OureaError('unknown', `${operation}: the response body is not a JSON object.`);
     }
@@ -829,7 +831,7 @@ export class Ourea {
           .set('cursor', cursor);
         return this.#get<LocationsResponse>(operation, path, query, false, options.signal);
       },
-      (page) => page.locations,
+      (page) => page.items,
       (page) => page.nextCursor,
       options.cursor,
     );
@@ -937,7 +939,7 @@ export class Ourea {
         const query = new QueryBuilder().set('limit', options.limit, 10).set('cursor', cursor);
         return this.#get<RunsResponse>('getAvailableRuns', '/runs', query, false, options.signal);
       },
-      (page) => page.runs,
+      (page) => page.items,
       (page) => page.nextCursor,
       options.cursor,
     );

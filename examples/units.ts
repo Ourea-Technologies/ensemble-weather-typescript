@@ -7,7 +7,7 @@ const imperial = metric.withOptions({ units: 'imperial' });
 
 for (const client of [metric, imperial]) {
   const forecast = await client.getForecast('or/mt-hood-meadows');
-  const hour = forecast.forecast.timeseries?.[0];
+  const hour = forecast.series.timeseries?.[0];
   if (hour === undefined) continue;
   const t = range(hour.ensemble.temperature, 'p10', 'p90');
   const p = range(hour.ensemble.precipitation, 'p10', 'p90');

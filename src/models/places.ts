@@ -227,10 +227,10 @@ export interface PassHour {
   /** `ensemble.snow_level.mean` (m, ft); omitted where not served. */
   readonly snowLevel?: number;
   /**
-   * `snow_level` minus the pass's elevation (m, ft): above 0 the snow level is above the pass
+   * (JSON `snow_level_above_pass`) `snow_level` minus the pass's elevation (m, ft): above 0 the snow level is above the pass
    * (rain at the pass when wet), below 0 it is under it.
    */
-  readonly snowLevelAbovePass?: number;
+  readonly snowLevelMargin?: number;
   /**
    * The hour is at or below freezing (temperature mean at or below 0 C, 32 F) and wet:
    * precipitation of at least 0.254 mm (0.01 in) in this hour or one of the two before it.
@@ -313,11 +313,11 @@ export interface PassStatusSegment {
   readonly direction: string;
   /** The DOT's name for the point (its trailing field padding removed). */
   readonly location: string;
-  /** The DOT's status code, verbatim. */
-  readonly status: string;
+  /** (JSON `status`) The DOT's status code, verbatim. */
+  readonly state: string;
   readonly level: PassStatusLevel;
-  /** The DOT's own description of the status, verbatim. */
-  readonly statusText: string;
+  /** (JSON `status_text`) The DOT's own description of the status, verbatim. */
+  readonly text: string;
   /** When the DOT set this status. */
   readonly updatedAt: string;
   readonly lat: number;

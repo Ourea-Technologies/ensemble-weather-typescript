@@ -116,6 +116,18 @@ async function invoke(client: Ourea, call: VectorCall): Promise<unknown> {
       for await (const item of request) items.push(item.slug);
       return items;
     }
+    case 'getLocationAlerts':
+      return client.getAlerts(where, options);
+    case 'getLocations':
+      return client.listLocations({ state: state as string, ...options });
+    case 'getNearbyLocations':
+      return client.getNearby(where, options);
+    case 'getNearbyByCoordinates':
+      return client.getPointNearby(point, options);
+    case 'getAvailableRuns':
+      return client.getRuns(options);
+    case 'getCatalogStation':
+      return client.getCatalogStation(slug as string, options);
     case 'getCurrentConditions':
       return client.getCurrent(where, options);
     case 'explore': {
@@ -225,8 +237,8 @@ afterEach(() => {
 const files = vectorFiles(VECTORS);
 
 describe('shared vectors', () => {
-  it('finds all 52 vectors', () => {
-    expect(files).toHaveLength(52);
+  it('finds all 58 vectors', () => {
+    expect(files).toHaveLength(58);
   });
 
   for (const file of files) {

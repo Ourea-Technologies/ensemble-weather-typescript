@@ -198,8 +198,8 @@ export interface AvalancheForecast {
   readonly validFrom: string | null;
   /** When the center's current product expires (UTC), when stated. */
   readonly validUntil: string | null;
-  /** The center's full forecast for the zone. */
-  readonly forecastUrl: string;
+  /** (JSON `forecast_url`) The center's full forecast for the zone. */
+  readonly url: string;
   readonly centerUrl: string;
   /**
    * The credit to show with the block: "Avalanche forecast by <center> via avalanche.org", or
@@ -218,7 +218,8 @@ export interface MemberPlume {
    * ifs_ens, rrfs.
    */
   readonly models: readonly ModelColumns[];
-  readonly members?: PooledColumns;
+  /** (JSON `members`) */
+  readonly pool?: PooledColumns;
 }
 
 /**

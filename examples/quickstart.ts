@@ -10,14 +10,14 @@ const forecast = await ourea.getForecast('or/mt-hood-meadows', {
 
 const degrees = forecast.units === 'imperial' ? '°F' : forecast.units === 'kelvin' ? 'K' : '°C';
 console.log(`${forecast.location.name}: temperature over the next 24 h (p10 to p90)`);
-for (const hour of forecast.forecast.timeseries?.slice(0, 25) ?? []) {
+for (const hour of forecast.series.timeseries?.slice(0, 25) ?? []) {
   const t = range(hour.ensemble.temperature, 'p10', 'p90');
-  if (t) console.log(`  ${hour.validTime}  ${String(t.low)} to ${String(t.high)} ${degrees}`);
+  if (t) console.log(`  ${hour.validAt}  ${String(t.low)} to ${String(t.high)} ${degrees}`);
 }
 
 const snow = forecast.probabilities?.[0];
-if (snow?.probability != null) {
-  const percent = Math.round(snow.probability * 100);
+if (snow?.value != null) {
+  const percent = Math.round(snow.value * 100);
   console.log(
     `Chance of 6 in (15 cm) or more of snow in the next 24 h: ${String(percent)}% (${String(snow.members)} members)`,
   );

@@ -40,7 +40,7 @@ if (
 ) {
   throw new Error(`unexpected URL ${url}`);
 }
-if (forecast.probabilities?.[0]?.probability !== 0.42) throw new Error('probability not mapped');
+if (forecast.probabilities?.[0]?.value !== 0.42) throw new Error('probability not mapped');
 console.log(
   `ok ${VERSION} ${sent[0].headers.get('User-Agent') ?? '(no User-Agent: browser-like runtime)'}`,
 );

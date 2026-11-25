@@ -42,9 +42,10 @@ export interface ForecastResponse {
   readonly modelRun: ModelRunInfo;
   /** The unit system every value in this body is in. */
   readonly units: UnitSystem;
-  readonly forecast: ForecastData;
-  /** Extra elevations (ski areas), when asked for with `elevations`. */
-  readonly elevationForecasts?: readonly ElevationForecast[];
+  /** (JSON `forecast`) */
+  readonly series: ForecastData;
+  /** (JSON `elevation_forecasts`) Extra elevations (ski areas), when asked for with `elevations`. */
+  readonly elevations?: readonly ElevationForecast[];
   /** Whether the live nowcast layer is blended in. */
   readonly nowcastApplied: boolean;
   /** Nowcast sources this body was built without because they did not answer in time. */
@@ -72,9 +73,12 @@ export interface ForecastResponse {
 export interface ProbabilityThresholds {
   readonly hourlyPrecipitation: number;
   readonly hourlySnowfall: number;
-  readonly dailyPrecipitationProbability: number;
-  readonly dailyPrecipitationOccurrenceProbability: number;
-  readonly dailySnowProbability: number;
+  /** (JSON `daily_precipitation_probability`) */
+  readonly dailyPrecipitation: number;
+  /** (JSON `daily_precipitation_occurrence_probability`) */
+  readonly dailyPrecipitationOccurrence: number;
+  /** (JSON `daily_snow_probability`) */
+  readonly dailySnow: number;
 }
 
 /** Why a probability or window total is `null`. */
@@ -99,10 +103,10 @@ export interface ProbabilityResult {
   /** The window's end, exclusive (ISO 8601), or `null` when not covered. */
   readonly to: string | null;
   /**
-   * The share of members meeting the term, 0..1. `null` (see `nullReason`)
+   * (JSON `probability`) The share of members meeting the term, 0..1. `null` (see `nullReason`)
    * when it has no value: absent, never 0.
    */
-  readonly probability: number | null;
+  readonly value: number | null;
   /** Members that voted. */
   readonly members: number;
   /** Why `probability` is `null`; `null` when it is not. */
@@ -114,8 +118,10 @@ export interface WindowTotal {
   /** The term's canonical spelling, as sent: the key results are matched by. */
   readonly term: string;
   readonly variable: Open<TotalVariable | 'temperature' | 'wind_speed'>;
-  readonly windowStartHours: number;
-  readonly windowEndHours: number;
+  /** (JSON `window_start_hours`) */
+  readonly startHours: number;
+  /** (JSON `window_end_hours`) */
+  readonly endHours: number;
   /** What each member contributes: `total` for precipitation and snowfall. */
   readonly aggregation: Open<'total' | 'min' | 'max'>;
   readonly from: string | null;
@@ -141,7 +147,8 @@ export interface ModelRunInfo {
   /** Initialization time (ISO 8601). */
   readonly initializedAt: string;
   readonly totalMembers: number;
-  readonly models: readonly ModelEntry[];
+  /** (JSON `models`) */
+  readonly contributors: readonly ModelEntry[];
 }
 
 /** Columbia Gorge gap flow status. */
@@ -240,9 +247,10 @@ export type ProvenanceVariable = Open<
 
 /** One hour of the forecast. */
 export interface TimeSeriesPoint {
-  /** The hour (ISO 8601). */
-  readonly validTime: string;
-  readonly leadTimeHours: number;
+  /** (JSON `valid_time`) The hour (ISO 8601). */
+  readonly validAt: string;
+  /** (JSON `lead_time_hours`) */
+  readonly leadHours: number;
   readonly isNight: boolean;
   readonly condition: HourlyCondition;
   /** Display text for `condition` ("Partly Cloudy"). */
@@ -330,7 +338,8 @@ export interface Sector {
 
 /** The likely precipitation type this hour. */
 export interface PrecipType {
-  readonly type: Open<'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'>;
+  /** (JSON `type`) */
+  readonly kind: Open<'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'>;
   readonly snowProbability: number;
   readonly rainProbability: number;
 }
@@ -355,7 +364,8 @@ export interface FreezingLevelBelowSurface {
 export interface FreezingLevelHeight {
   readonly kind: 'height';
   readonly height: number;
-  readonly aboveFreezingLayerAloft: boolean;
+  /** (JSON `above_freezing_layer_aloft`) */
+  readonly warmLayerAloft: boolean;
 }
 
 /** The whole profile is above freezing, up to `top`. */
@@ -422,12 +432,14 @@ export interface ModelStats {
 /** One model's members at one hour. */
 export interface ModelMembers {
   readonly id: string;
-  readonly members: readonly MemberForecast[];
+  /** (JSON `members`) */
+  readonly items: readonly MemberForecast[];
 }
 
 /** One ensemble member's values at one hour. */
 export interface MemberForecast {
-  readonly memberId: number;
+  /** (JSON `member_id`) */
+  readonly id: number;
   /** `null` when this member published nothing at this hour. */
   readonly temperature: number | null;
   readonly precipitation: number | null;
@@ -661,7 +673,8 @@ export interface SnowOutlookQuantiles {
 /** A forecast at one extra elevation of a location. */
 export interface ElevationForecast {
   readonly name: string;
-  readonly elevation: number;
+  /** (JSON `elevation`) */
+  readonly height: number;
   readonly lat: number;
   readonly lon: number;
   readonly hourly?: readonly TimeSeriesPoint[];

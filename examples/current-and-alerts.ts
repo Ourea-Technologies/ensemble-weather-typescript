@@ -2,19 +2,19 @@
 import { Ourea } from 'ensemble-weather';
 
 const ourea = new Ourea();
-const [now, alerts] = await Promise.all([
+const [current, alerts] = await Promise.all([
   ourea.getCurrent('or/mt-hood-meadows'),
   ourea.getAlerts('or/mt-hood-meadows'),
 ]);
 
-if (now.current === null) {
+if (current.now === null) {
   console.log('No current conditions are available right now.');
 } else {
-  const c = now.current;
+  const c = current.now;
   console.log(
-    `${now.location.name} now: ${String(c.temperature)} (${now.units}), ${c.conditionText}, wind ${String(c.windSpeed)} from ${String(c.windDirection)}°, source ${c.source}`,
+    `${current.location.name} now: ${String(c.temperature)} (${current.units}), ${c.text}, wind ${String(c.windSpeed)} from ${String(c.windDirection)}°, source ${c.source}`,
   );
 }
-console.log(`${String(alerts.alertCount)} active alert(s)`);
-for (const alert of alerts.alerts)
+console.log(`${String(alerts.count)} active alert(s)`);
+for (const alert of alerts.items)
   console.log(`  ${alert.severity}: ${alert.headline} (until ${alert.expires})`);
