@@ -108,6 +108,9 @@ await check('GeoJSON: alert outlines and avalanche zones', async () => {
   assert(outlines.type === 'FeatureCollection', 'outlines collection');
   const zones = await ourea.getAvalancheZones();
   assert(zones.features.length > 0, 'zones');
+  // GeoJSON is passed through untouched: wire keys, no renames.
+  const zone = zones.features[0]?.properties ?? {};
+  assert('forecast_url' in zone && 'danger_level' in zone, 'zone properties keep wire keys');
 });
 await check('a mountain pass carries its pass forecast', async () => {
   const current = await ourea.getCurrent('wa/snoqualmie-pass-i-90');
@@ -116,9 +119,9 @@ await check('a mountain pass carries its pass forecast', async () => {
 
 await check('renamed fields decode under their SDK names (BEHAVIOR.md 3.0)', async () => {
   const f = await ourea.getForecast('or/mt-hood-meadows', { elevations: 'all' });
-  assert(typeof f.series.timeseries?.[0]?.validAt === 'string', 'series.timeseries[0].validAt');
+  assert(typeof f.series.timeseries?.[0]?.validTime === 'string', 'series.timeseries[0].validTime');
   assert(typeof f.elevations?.[0]?.height === 'number', 'elevations[0].height');
-  assert(f.modelRun.contributors.length > 0, 'modelRun.contributors');
+  assert(f.modelRun.models.length > 0, 'modelRun.models');
   const current = await ourea.getCurrent('wa/snoqualmie-pass-i-90');
   assert(typeof current.now?.code === 'string', 'now.code');
   assert(typeof current.sensors[0]?.observedAt === 'string', 'sensors[0].observedAt');

@@ -93,8 +93,26 @@ while (changed) {
     }
   }
 }
+// The operations' JSON response schemas. GeoJSON bodies (application/geo+json)
+// are passed through untouched (BEHAVIOR.md 3.0), so they start no renames.
+const roots = {};
+for (const item of Object.values(spec.paths)) {
+  const op = item.get;
+  if (!op) continue;
+  const ref = op.responses?.['200']?.content?.['application/json']?.schema?.$ref;
+  if (ref && needed.has(refName(ref))) roots[op.operationId] = refName(ref);
+}
+// Keep only the nodes an operation reaches.
+const reached = new Set();
+const visit = (id) => {
+  if (reached.has(id) || !needed.has(id)) return;
+  reached.add(id);
+  const node = nodes.get(id);
+  for (const k of node.union ?? Object.values(edges.get(id) ?? {})) visit(k);
+};
+for (const id of Object.values(roots)) visit(id);
 const table = {};
-for (const id of [...needed].sort()) {
+for (const id of [...reached].sort()) {
   const node = nodes.get(id);
   const entry = {};
   if (node.union) entry.union = node.union.filter((k) => needed.has(k));
@@ -103,14 +121,6 @@ for (const id of [...needed].sort()) {
   const kids = Object.entries(edges.get(id) ?? {}).filter(([, k]) => needed.has(k));
   if (kids.length > 0) entry.fields = Object.fromEntries(kids);
   table[id] = entry;
-}
-const roots = {};
-for (const item of Object.values(spec.paths)) {
-  const op = item.get;
-  if (!op) continue;
-  const content = op.responses?.['200']?.content ?? {};
-  const ref = (content['application/json'] ?? content['application/geo+json'])?.schema?.$ref;
-  if (ref && needed.has(refName(ref))) roots[op.operationId] = refName(ref);
 }
 
 const text = `// SPDX-License-Identifier: BSD-2-Clause

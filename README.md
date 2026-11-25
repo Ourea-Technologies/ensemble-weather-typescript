@@ -40,7 +40,7 @@ const degrees = forecast.units === 'imperial' ? '°F' : forecast.units === 'kelv
 console.log(`${forecast.location.name}: temperature over the next 24 h (p10 to p90)`);
 for (const hour of forecast.series.timeseries?.slice(0, 25) ?? []) {
   const t = range(hour.ensemble.temperature, 'p10', 'p90');
-  if (t) console.log(`  ${hour.validAt}  ${String(t.low)} to ${String(t.high)} ${degrees}`);
+  if (t) console.log(`  ${hour.validTime}  ${String(t.low)} to ${String(t.high)} ${degrees}`);
 }
 
 const snow = forecast.probabilities?.[0];
@@ -126,11 +126,17 @@ less than `from`). More at
 
 ## Names that differ from the API's JSON
 
-Fields arrive in camelCase (`elevation_m` is `elevationM`). A few JSON fields
-would read twice (`forecast.forecast`, `current.current`,
-`probability.probability`), so the SDK names them differently: one table for
-every Ourea SDK (ensemble-weather-spec BEHAVIOR.md 3.0). Every other field is
-its JSON name in camelCase.
+Fields arrive in camelCase (`elevation_m` becomes `elevationM`). A JSON
+field that repeats a word of the type holding it would read twice
+(`forecast.forecast`, `current.current`, `probability.probability`), so the
+SDK names it differently. There is one table for every Ourea SDK
+(ensemble-weather-spec BEHAVIOR.md 3.0). Every other field keeps its JSON
+name in camelCase.
+
+**GeoJSON is passed through untouched.** The bodies of `getAlertOutlines`
+and `getAvalancheZones` keep every key exactly as the API sends it, so they
+go straight to a map library: no camelCase and no renames (for example
+`properties.forecast_url` and `properties.danger_level`).
 
 | Type                         | JSON field                                   | SDK field                      |
 | ---------------------------- | -------------------------------------------- | ------------------------------ |
@@ -147,14 +153,9 @@ its JSON name in camelCase.
 | `ProbabilityThresholds`      | `daily_snow_probability`                     | `dailySnow`                    |
 | `WindowTotal`                | `window_start_hours`                         | `startHours`                   |
 | `WindowTotal`                | `window_end_hours`                           | `endHours`                     |
-| `TimeSeriesPoint`            | `valid_time`                                 | `validAt`                      |
-| `TimeSeriesPoint`            | `lead_time_hours`                            | `leadHours`                    |
 | `ModelMembers`               | `members`                                    | `items`                        |
 | `MemberForecast`             | `member_id`                                  | `id`                           |
 | `MemberPlume`                | `members`                                    | `pool`                         |
-| `PrecipType`                 | `type`                                       | `kind`                         |
-| `FreezingLevelHeight`        | `above_freezing_layer_aloft`                 | `warmLayerAloft`               |
-| `ModelRunInfo`               | `models`                                     | `contributors`                 |
 | `AlertsResponse`             | `alerts`                                     | `items`                        |
 | `AlertsResponse`             | `alert_count`                                | `count`                        |
 | `LocationsResponse`          | `locations`                                  | `items`                        |
@@ -179,7 +180,6 @@ its JSON name in camelCase.
 | `AvalancheForecast`          | `forecast_url`                               | `url`                          |
 | `SeasonTotal`                | `total`                                      | `amount`                       |
 | `SnowTrendDay`               | `snow`                                       | `amount`                       |
-| `SnowpackAspect`             | `aspect`                                     | `facing`                       |
 
 ## Every route
 

@@ -64,6 +64,9 @@ import { VERSION } from './version.js';
 
 export type { FetchLike, Logger } from './internal/transport.js';
 
+/** The GeoJSON routes, whose bodies keep every key as the API sends it. */
+const GEOJSON_OPERATIONS: ReadonlySet<string> = new Set(['getAlertOutlines', 'getAvalancheZones']);
+
 /** The production API. */
 export const DEFAULT_BASE_URL = 'https://api.oureawx.com';
 
@@ -610,8 +613,11 @@ export class Ourea {
       signal,
     });
     this.#rateLimit = raw.meta.rateLimit;
-    // eslint-disable-next-line security/detect-object-injection -- operation is this SDK's own operationId
-    const data = applyRenames(camelize(raw.data), RENAME_ROOTS[operation]);
+    // GeoJSON is passed through untouched (BEHAVIOR.md 3.0): wire keys, no renames.
+    const data = GEOJSON_OPERATIONS.has(operation)
+      ? raw.data
+      : // eslint-disable-next-line security/detect-object-injection -- operation is this SDK's own operationId
+        applyRenames(camelize(raw.data), RENAME_ROOTS[operation]);
     if (typeof data !== 'object' || data === null) {
       throw new OureaError('unknown', `${operation}: the response body is not a JSON object.`);
     }

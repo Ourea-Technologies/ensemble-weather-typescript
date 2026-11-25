@@ -19,8 +19,8 @@ it('renames a forecast body and nothing else', () => {
   };
   expect(f.forecast).toBeUndefined();
   const hour = f.series.timeseries[0] ?? {};
-  expect(Object.keys(hour)).toContain('validAt');
-  expect(Object.keys(hour)).not.toContain('validTime');
+  // valid_time does not repeat TimeSeriesPoint's word: it keeps its wire name.
+  expect(Object.keys(hour)).toContain('validTime');
   // An hour's condition keeps its wire name: only CurrentConditions renames it.
   expect(Object.keys(hour)).toContain('conditionText');
   expect(Object.keys(f.current)).toContain('text');
@@ -41,4 +41,9 @@ it('every rename node is reachable from an operation', () => {
     .filter(([, n]) => n.rename !== undefined)
     .map(([id]) => id);
   for (const id of renaming) expect(reached, id).toContain(id);
+});
+
+it('starts no renames from a GeoJSON route', () => {
+  expect(RENAME_ROOTS.getAvalancheZones).toBeUndefined();
+  expect(RENAME_ROOTS.getAlertOutlines).toBeUndefined();
 });

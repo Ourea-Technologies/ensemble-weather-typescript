@@ -174,7 +174,11 @@ function read(result: unknown, path: string): unknown {
   for (const segment of segments) {
     const m = /^([^[]+)((?:\[\d+\])*)$/.exec(segment);
     if (m === null) throw new Error(`bad path ${path}`);
-    current = (current as Record<string, unknown> | undefined)?.[camelKey(m[1] ?? '')];
+    // GeoJSON keeps its wire keys (BEHAVIOR.md 3.0): read a key as written when present.
+    const record = current as Record<string, unknown> | undefined;
+    const name = m[1] ?? '';
+    current =
+      record !== undefined && Object.hasOwn(record, name) ? record[name] : record?.[camelKey(name)];
     for (const index of (m[2] ?? '').matchAll(/\[(\d+)\]/g)) {
       current = (current as unknown[] | undefined)?.[Number(index[1])];
     }

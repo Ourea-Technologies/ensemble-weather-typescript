@@ -18,6 +18,6 @@ console.log(
 );
 for (const hour of forecast.series.timeseries?.slice(0, 6) ?? []) {
   console.log(
-    `  ${hour.validAt}  median ${String(median(hour.ensemble.temperature))} ${forecast.units}  ${hour.conditionText}`,
+    `  ${hour.validTime}  median ${String(median(hour.ensemble.temperature))} ${forecast.units}  ${hour.conditionText}`,
   );
 }

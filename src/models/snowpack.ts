@@ -126,8 +126,8 @@ export interface SnowpackLayer {
  * own sun.
  */
 export interface SnowpackAspect {
-  /** (JSON `aspect`) The way the slope faces: today `north`, `east`, `south` or `west`. */
-  readonly facing: string;
+  /** The way the slope faces: today `north`, `east`, `south` or `west`. */
+  readonly aspect: string;
   /** How steep the slope is, degrees from horizontal. */
   readonly slopeAngleDeg: number;
   /** Hourly snow depth on the slope, measured vertically as the flat depth is. */

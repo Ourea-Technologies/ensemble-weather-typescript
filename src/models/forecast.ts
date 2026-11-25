@@ -147,8 +147,7 @@ export interface ModelRunInfo {
   /** Initialization time (ISO 8601). */
   readonly initializedAt: string;
   readonly totalMembers: number;
-  /** (JSON `models`) */
-  readonly contributors: readonly ModelEntry[];
+  readonly models: readonly ModelEntry[];
 }
 
 /** Columbia Gorge gap flow status. */
@@ -247,10 +246,9 @@ export type ProvenanceVariable = Open<
 
 /** One hour of the forecast. */
 export interface TimeSeriesPoint {
-  /** (JSON `valid_time`) The hour (ISO 8601). */
-  readonly validAt: string;
-  /** (JSON `lead_time_hours`) */
-  readonly leadHours: number;
+  /** The hour (ISO 8601). */
+  readonly validTime: string;
+  readonly leadTimeHours: number;
   readonly isNight: boolean;
   readonly condition: HourlyCondition;
   /** Display text for `condition` ("Partly Cloudy"). */
@@ -338,8 +336,7 @@ export interface Sector {
 
 /** The likely precipitation type this hour. */
 export interface PrecipType {
-  /** (JSON `type`) */
-  readonly kind: Open<'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'>;
+  readonly type: Open<'rain' | 'snow' | 'rain_snow_mix' | 'freezing_rain'>;
   readonly snowProbability: number;
   readonly rainProbability: number;
 }
@@ -364,8 +361,7 @@ export interface FreezingLevelBelowSurface {
 export interface FreezingLevelHeight {
   readonly kind: 'height';
   readonly height: number;
-  /** (JSON `above_freezing_layer_aloft`) */
-  readonly warmLayerAloft: boolean;
+  readonly aboveFreezingLayerAloft: boolean;
 }
 
 /** The whole profile is above freezing, up to `top`. */

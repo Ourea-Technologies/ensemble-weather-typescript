@@ -2,7 +2,6 @@
 // GeoJSON for maps: active alert outlines and avalanche zones.
 
 import type { Open, ResponseAttribution } from './common.js';
-import type { AvalancheForecast } from './plume.js';
 
 /** The class of an alert outline. */
 export type AlertClass = Open<'wind' | 'winter'>;
@@ -51,12 +50,12 @@ export interface AlertOutlineProperties {
   /** When the hazard ends. */
   readonly ends?: string;
   /** The NWS office. */
-  readonly senderName?: string;
+  readonly sender_name?: string;
   /**
    * The NWS forecast page of a point inside the outline, which lists the alert and links to its
    * text: where "view on NWS" goes.
    */
-  readonly sourceUrl: string;
+  readonly source_url: string;
 }
 
 /**
@@ -79,7 +78,7 @@ export interface AvalancheZoneFeature {
   /** The zone's id, as `properties.zone_id`. */
   readonly id: number;
   readonly geometry: AvalancheZoneGeometry;
-  readonly properties: AvalancheForecast;
+  readonly properties: AvalancheZoneProperties;
 }
 
 /**
@@ -89,4 +88,46 @@ export interface AvalancheZoneFeature {
 export interface AvalancheZoneGeometry {
   readonly type: Open<'MultiPolygon'>;
   readonly coordinates: readonly (readonly (readonly unknown[])[])[];
+}
+
+/**
+ * An avalanche zone Feature's `properties`, exactly as the API sends them: GeoJSON is passed
+ * through untouched (BEHAVIOR.md 3.0), so the keys are the wire's (`forecast_url`, `danger_level`).
+ */
+export interface AvalancheZoneProperties {
+  /** The avalanche center's short id. */
+  readonly center_id: string;
+  readonly center_name: string;
+  /**
+   * avalanche.org's id for the forecast zone; for a CAIC forecast area, an id at or above 2^52
+   * derived from CAIC's area id (stable for that grouping of CAIC's polygons).
+   */
+  readonly zone_id: number;
+  readonly zone_name: string;
+  /**
+   * The North American Public Avalanche Danger Scale level, 1-5; present only when `status` is
+   * `rated`.
+   */
+  readonly danger_level: number | null;
+  /**
+   * Display text: the scale's English name for `danger_level` (Low, Moderate, Considerable,
+   * High, Extreme), derived from the level, never the center's own wording; `null` exactly when
+   * `danger_level` is.
+   */
+  readonly danger_label: string | null;
+  /** `rated`: a current rating. */
+  readonly status: Open<'rated' | 'no_rating' | 'off_season' | 'unavailable'>;
+  /** When the center's current product took effect (UTC), when stated. */
+  readonly valid_from: string | null;
+  /** When the center's current product expires (UTC), when stated. */
+  readonly valid_until: string | null;
+  /** The center's full forecast for the zone. */
+  readonly forecast_url: string;
+  readonly center_url: string;
+  /**
+   * The credit to show with the block: "Avalanche forecast by <center> via avalanche.org", or
+   * "Avalanche forecast by Colorado Avalanche Information Center via avalanche.state.co.us" for
+   * a CAIC area.
+   */
+  readonly attribution: string;
 }

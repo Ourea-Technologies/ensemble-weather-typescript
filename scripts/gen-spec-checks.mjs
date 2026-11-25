@@ -148,6 +148,25 @@ for (const name of reachable.sort()) {
   const schema = schemas[name];
   if (!NOT_OBJECTS.has(name)) models.push([name, tsName(name), flatten(schema), name]);
 }
+// GeoJSON (application/geo+json) is passed through untouched: its models keep
+// the wire keys. An avalanche zone's properties are AvalancheForecast's fields
+// under their wire names, as AvalancheZoneProperties.
+const GEOJSON = new Set([
+  'AlertOutlineCollection',
+  'AlertOutlineFeature',
+  'AlertOutlineGeometry',
+  'AlertOutlineProperties',
+  'AvalancheZoneCollection',
+  'AvalancheZoneFeature',
+  'AvalancheZoneGeometry',
+  'AvalancheZoneFeature.properties',
+]);
+models.push([
+  'AvalancheZoneFeature.properties',
+  'AvalancheZoneProperties',
+  flatten(schemas.AvalancheForecast),
+  'AvalancheZoneFeature',
+]);
 for (const [path, type] of Object.entries(INLINE)) {
   const [owner, field] = path.split('.');
   let node = field === 'items' ? schemas[owner].items : flatten(schemas[owner]).properties[field];
@@ -178,7 +197,9 @@ const lines = [
 const asserts = [];
 for (const [label, type, flat] of models) {
   // Each wire field under its SDK name (BEHAVIOR.md 3.0).
-  const rename = renames.get(label) ?? new Map();
+  // GeoJSON models keep the wire keys exactly (no camelCase, no renames).
+  const geo = GEOJSON.has(label);
+  const rename = geo ? new Map() : (renames.get(label) ?? new Map());
   const sdk = (k) => rename.get(k) ?? k;
   const properties = Object.fromEntries(
     Object.entries(flat.properties).map(([k, v]) => [sdk(k), v]),
@@ -187,15 +208,18 @@ for (const [label, type, flat] of models) {
   const keys = Object.keys(properties);
   lines.push(`  // ${label}`);
   lines.push(`  ${type.replace(/\W/g, '_')}: {`);
-  for (const k of keys) lines.push(`    ${camel(k)}: true,`);
+  const key = (k) => (geo ? (/^[a-z_][a-z0-9_]*$/.test(k) ? k : JSON.stringify(k)) : camel(k));
+  for (const k of keys) lines.push(`    ${key(k)}: true,`);
   lines.push(`  } satisfies Fields<M.${type}>,`);
   const allOptional = ALL_OPTIONAL[label] !== undefined;
   for (const k of keys) {
     const req = required.has(k) && !allOptional;
-    asserts.push(`  Check<${req ? 'IsRequired' : 'IsOptional'}<M.${type}, '${camel(k)}'>>,`);
+    asserts.push(
+      `  Check<${req ? 'IsRequired' : 'IsOptional'}<M.${type}, '${geo ? k : camel(k)}'>>,`,
+    );
     if (hasType(properties[k])) {
       asserts.push(
-        `  Check<IsNullable<M.${type}, '${camel(k)}'> extends ${String(isNullable(properties[k]))} ? true : false>,`,
+        `  Check<IsNullable<M.${type}, '${geo ? k : camel(k)}'> extends ${String(isNullable(properties[k]))} ? true : false>,`,
       );
     }
   }
