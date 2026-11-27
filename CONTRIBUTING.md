@@ -73,8 +73,13 @@ Pinned exactly in `package.json` and locked by `package-lock.json`.
 - `eslint`, `@eslint/js`, `typescript-eslint`, `globals`: lint at the strict-type-checked level.
 - `eslint-plugin-security`: the static security lint SDK-STANDARD requires.
 - `prettier`: formatting.
-- `vitest`, `@vitest/coverage-v8`: tests and coverage (vitest 3 still runs on Node.js 18), with
-  `overrides.vite` pinned to 6.4.5 because vite 7 needs Node.js 20.19+.
+- `vitest`, `@vitest/coverage-v8`: tests and coverage. vitest 4 declares Node.js 20+, but the
+  suite runs on Node.js 18 too and CI's Node.js 18 job keeps it so, with `overrides.vite` pinned
+  to 6.4.5 because vite 7 needs Node.js 20.19+.
+- `overrides["@typescript-eslint/typescript-estree"].minimatch`: 11.0.8, as typescript-eslint
+  8.72 asks for minimatch 10, which has GHSA-g3hv-75wg-m249 (fixed in 11.0.1); typescript-eslint
+  8.73 takes 11 itself. typedoc 0.28.20 still asks for minimatch 10 and breaks on 11, so it keeps
+  10.2.6.
 - `typedoc`: the API reference.
 - `publint`, `@arethetypeswrong/cli`: check the published package shape and its types.
 - `yaml`: read the pinned OpenAPI spec in the drift test and the check generator.
