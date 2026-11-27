@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# osv-scanner finds this file next to package-lock.json (security.yml scans
+# --lockfile=package-lock.json from the repository root).
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2026-12-27T00:00:00Z
+reason = "dev-only, via typedoc 0.28.20 (newest), which requires minimatch ^10.2.5; typedoc matches only this repo's own typedoc.json globs, so attacker-supplied patterns can't reach it; remove when typedoc takes minimatch 11 (Harrison, 2026-11-27)"
