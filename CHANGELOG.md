@@ -6,7 +6,7 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - 2026-11-24
+## [0.1.0] - 2026-11-27
 
 The first release on npm. Targets the v1 contract at ensemble-weather-spec
 7954268 (the server's public spec at 256cd770, byte for byte).
